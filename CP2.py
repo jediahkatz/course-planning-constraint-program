@@ -14,6 +14,7 @@ ReqCategoryId = str
 
 NUM_SEMESTERS = 8
 MAX_COURSES_PER_SEMESTER = 5
+MAX_DOUBLE_COUNTING = 3
 
 COURSES_CACHE_FILE = 'all_courses.json'
 COURSE_INFOS_CACHE_FILE = 'course_infos.json'
@@ -228,7 +229,7 @@ def raise_for_missing_courses(all_courses: list[dict], requirements: list[Requir
     assert not missing_courses, f'There are missing courses: {missing_courses}'
 
 # TODO: deduplicate the entries
-print('Fetching all course requirement categories')
+print('Fetching all courses\' requirement categories')
 course_infos: list[dict] = get_cached_value(
     COURSE_INFOS_CACHE_FILE,
     lambda: compute_course_infos(
@@ -332,6 +333,26 @@ for c in range(len(all_courses)):
             sum(satisfies[c, m, i] for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))) <= 1
         )
 
+# Limit double counting between majors
+# TODO: decide what to do about triple+ counting; right now it's disallowed
+# future BUG: if we allow triple counting, then need to change equation below:
+# total number of courses = total number of requirements - num_double_counts
+num_double_counts = 0
+for c in range(len(all_courses)):
+    num_times_counted = model.NewIntVar(0, 2, '')
+    model.Add(
+        num_times_counted == sum(
+            satisfies[c, m, i] 
+            for m in range(len(ALL_MAJOR_REQUIREMENTS))
+            for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))
+        )
+    )
+    is_double_counted = model.NewBoolVar('')
+    num_double_counts += is_double_counted
+    model.Add(num_times_counted == 2).OnlyEnforceIf(is_double_counted)
+    model.Add(num_times_counted < 2).OnlyEnforceIf(is_double_counted.Not())
+model.Add(num_double_counts <= MAX_DOUBLE_COUNTING)
+
 # If a course isn't satisfying anything, don't take it
 for c in range(len(all_courses)):
     course_satisfies_something = model.NewBoolVar('')
@@ -377,6 +398,7 @@ for m in range(len(ALL_MAJOR_REQUIREMENTS)):
 WANT_TO_TAKE = [
     ('CIS-110', 0),
     ('MATH-104', 0),
+    ('BIOL-101', 0),
     ('CIS-160', 1),
     ('CIS-120', 1),
     ('MATH-114', 1),
@@ -403,8 +425,17 @@ for c, course in enumerate(all_courses):
             takes_course_in_sem[c, 0] == 0
         )
 
+# REDUNDANT: tell OR-tools some facts to help catch infeasible schedules:
+num_courses_ub = NUM_SEMESTERS * MAX_COURSES_PER_SEMESTER + len(pre_college_credits)
+num_courses_taken = model.NewIntVar(0, num_courses_ub, '')
+model.Add(
+    num_courses_taken == sum(takes_course[c] for c in range(len(all_courses)))
+)
+num_major_requirements = sum(len(major) for major in ALL_MAJOR_REQUIREMENTS)
+model.Add(
+    num_courses_taken >= num_major_requirements - num_double_counts
+)
 
-num_courses_taken = sum(takes_course[c] for c in range(len(all_courses)))
 # model.Add(num_courses_taken == 7)
 # model.Minimize(num_courses_taken)
 
@@ -420,7 +451,7 @@ if solver.Solve(model) in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
             c for c in range(len(all_courses))
             if solver.Value(takes_course_in_sem[c, s]) == 1
         ]
-        course_indices_to_major_requirement_indices = {
+        course_indices_to_satisfied_major_req_indices = {
             c: [
                 (m, i)
                 for m in range(len(ALL_MAJOR_REQUIREMENTS))
@@ -435,11 +466,14 @@ if solver.Solve(model) in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
 
         for c in course_indices:
             course_id = all_courses[c]['id']
-            requirement_names = ', '.join([
+            requirement_names = [
                 str(ALL_MAJOR_REQUIREMENTS[m][i])
-                for (m, i) in course_indices_to_major_requirement_indices[c]
-            ])
-            print(f'{course_id} (satisfies {requirement_names})')
+                for (m, i) in course_indices_to_satisfied_major_req_indices[c]
+            ]
+            requirement_names_str = ', '.join(requirement_names)
+            # Indicate double-counted courses with a star
+            maybe_star = '*' if len(requirement_names) > 1 else ''
+            print(f'{maybe_star}{course_id} (satisfies {requirement_names_str})')
         
         print()
 else:

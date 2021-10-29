@@ -49,6 +49,7 @@ class Requirement:
     courses: set[CourseId]
     min_number: int
     max_number: int
+    nickname: str
 
     def __init__(
         self, 
@@ -57,6 +58,7 @@ class Requirement:
         courses: list[CourseId] = [],
         min_number = 0,
         max_number = 0,
+        nickname = ''
     ):
         if not (categories or depts or courses):
             raise ValueError('Requirement cannot be empty!')
@@ -65,15 +67,18 @@ class Requirement:
         self.courses = set(courses)
         self.min_number = min_number
         self.max_number = max_number
+        self.nickname = nickname
 
     def __str__(self):
+        if self.nickname:
+            return f'<{self.nickname}>'
         or_strings = [
             f'[{" | ".join(alternatives)}]'
             for alternatives in [self.categories, self.depts, self.courses]
             if alternatives 
         ]
         req_string = ' & '.join(or_strings)
-        return f'REQ({req_string})'
+        return f'<{req_string}>'
 
     def satisfied_by_course(self, course_info: dict) -> bool:
         categories = set(req['id'] for req in course_info['requirements'])
@@ -110,7 +115,8 @@ CIS_BSE_REQUIREMENTS: list[Requirement] = [
         categories=['ENG@SEAS'], 
         depts=['CIS', 'NETS'], 
         min_number=200,
-        max_number=699
+        max_number=699,
+        nickname="CIS Elective"
     )] * 4),
     # === MATH AND NATURAL SCIENCE ===
     Requirement(courses=['MATH-104']),
@@ -128,33 +134,42 @@ CIS_BSE_REQUIREMENTS: list[Requirement] = [
     *([Requirement(categories=['SS@SEAS', 'H@SEAS'])] * 4),
     *([Requirement(categories=['SS@SEAS', 'H@SEAS', 'TBS@SEAS'])] * 2),
     # # # === TODO: FREE ELECTIVE ===
-    Requirement(categories=['H@SEAS']),
+    Requirement(categories=['H@SEAS'], nickname='Free Elective'),
 ]
 CIS_MSE_REQUIREMENTS: list[Requirement] = [
     # === CORE COURSES ===
     # theory course
-    Requirement(courses=['CIS-502', 'CIS-511', 'CIS-677']),
+    Requirement(courses=['CIS-502', 'CIS-511', 'CIS-677'], nickname='Theory'),
     # systems course or 501
-    Requirement(courses=['CIS-501', 'CIS-505', 'CIS-548', 'CIS-553', 'CIS-555']),
+    Requirement(
+        courses=['CIS-501', 'CIS-505', 'CIS-548', 'CIS-553', 'CIS-555'],
+        nickname='Systems'
+    ),
     # core course that can be ML
     Requirement(courses=[
         'CIS-502', 'CIS-511',
         'CIS-505', 'CIS-548', 'CIS-553', 'CIS-555',
         'CIS-520', 'CIS-519', 'CIS-521',
         'CIS-500', 'CIS-501',
-    ]),
+    ], nickname='Core'),
     # core course that can't be ML
     Requirement(courses=[
         'CIS-502', 'CIS-511',
         'CIS-505', 'CIS-548', 'CIS-553', 'CIS-555',
         'CIS-500', 'CIS-501',
-    ]),
+    ], nickname='Core'),
     # === CIS ELECTIVES ===
-    *([Requirement(depts=['CIS'], min_number=500, max_number=699)] * 2),
+    *([Requirement(
+        depts=['CIS'], min_number=500, max_number=699,
+        nickname='Grad CIS'
+    )] * 2),
     Requirement(depts=['CIS'], min_number=500, max_number=700),
     # === CIS OR NON-CIS ELECTIVES ===
     # TODO: revisit this after allowing OR of requirements
-    *([Requirement(categories=['ENG@SEAS'], min_number=500, max_number=699)] * 3),
+    *([Requirement(
+        categories=['ENG@SEAS'], min_number=500, max_number=699,
+        nickname='Grad Non-CIS'
+    )] * 3),
 ]
 SEAS_REQUIREMENTS: list[Requirement] = [
     Requirement(categories=['ENG@SEAS']), 
@@ -534,7 +549,7 @@ if solver.Solve(model) in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
             requirement_names_str = ', '.join(requirement_names)
             # Indicate double-counted courses with a star
             maybe_star = '*' if len(requirement_names) > 1 else ''
-            print(f'> {maybe_star}{course_id} (satisfies {requirement_names_str})')
+            print(f'+ {maybe_star}{course_id} (satisfies {requirement_names_str})')
         
         print()
 

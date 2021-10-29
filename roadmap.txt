@@ -1,13 +1,13 @@
 in-progress:
-- requirements can have nicknames
+- big refactor + types (must do next after >1k LOC)
 
 todo:
 - enforce complex prerequisites (e.g. ECON 001 AND (STAT 101 OR STAT 102))
 - user can request to take class in any semester
-- big refactor + types (must do next after >1k LOC)
 - handle courses missing across fall/spring
 
 done (reverse chrono):
+- requirements can have nicknames
 - enforce basic prerequisites (e.g. CIS 120, 160)
 - limit on double counting
 - user can request to take class in specified semester

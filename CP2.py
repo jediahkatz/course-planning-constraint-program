@@ -171,10 +171,37 @@ WH_REQUIREMENTS: list[Requirement] = [
     Requirement(categories=['URE@WH']), 
     Requirement(categories=['NSME@WH']),
 ]
+SIMPLE_PREREQ_REQUIREMENTS = [
+    Requirement(courses=['CIS-120']),
+    Requirement(courses=['CIS-160']),
+    Requirement(courses=['CIS-121']),
+    Requirement(courses=['CIS-320']),
+    Requirement(courses=['CIS-262']),
+]
 ALL_MAJOR_REQUIREMENTS: list[list[Requirement]] = [
     CIS_BSE_REQUIREMENTS,
-    CIS_MSE_REQUIREMENTS
+    CIS_MSE_REQUIREMENTS,
+    # SIMPLE_PREREQ_REQUIREMENTS
 ]
+
+WANT_TO_TAKE: list[tuple[str, int]] = [
+    ('CIS-110', 0),
+    ('MATH-104', 0),
+    ('BIOL-101', 0),
+    ('CIS-160', 1),
+    ('CIS-120', 1),
+    ('MATH-114', 1),
+    ('CIS-121', 2),
+    ('CIS-320', 4),
+    ('CIS-400', 7),
+    ('CIS-401', 8),
+]
+WANTED_COURSES = set(
+    course_id for course_id, _ in WANT_TO_TAKE
+)
+PRE_COLLEGE_CREDITS = set(
+    course_id for course_id, sem in WANT_TO_TAKE if sem == 0
+)
 
 def get_cached_value(filename: str, compute_value: Callable[[], str]):
     # TODO: add expiration
@@ -228,6 +255,25 @@ def raise_for_missing_courses(all_courses: list[dict], requirements: list[Requir
     missing_courses = courses_from_reqs.difference(course_ids)
     assert not missing_courses, f'There are missing courses: {missing_courses}'
 
+# right now we only handle of the form 'DEPT 123, 456'
+def parse_prerequisites(all_courses):
+    for course in all_courses:
+        prereqs_string: str = course['prerequisites']
+        parts = prereqs_string.split(', ')
+        first_course = parts[0].split(' ')
+        if len(first_course) != 2:
+            # Ill-formatted
+            course['prerequisites'] = []
+            continue
+        dept, code = first_course
+        codes = [code] + parts[1:]
+        if dept != dept.strip() or any(code != code.strip() for code in codes):
+            # Ill-formatted
+            course['prerequisites'] = []
+            continue
+            
+        course['prerequisites'] = [f'{dept}-{code}' for code in codes]
+
 # TODO: deduplicate the entries
 print('Fetching all courses\' requirement categories')
 course_infos: list[dict] = get_cached_value(
@@ -242,10 +288,11 @@ course_infos: list[dict] = get_cached_value(
 
 # optimization to make the model smaller:
 # only need to consider courses that satisfy at least one of our requirements
+# TODO: may also need courses that are prerequisites for courses that satisfy 
 # TODO: add a course that represents a free elective
 all_courses = [
-    course for course in course_infos 
-    if any(
+    course for course in course_infos
+    if course['id'] in WANTED_COURSES or any(
         req.satisfied_by_course(course)
         for major in ALL_MAJOR_REQUIREMENTS
         for req in major
@@ -257,6 +304,8 @@ course_id_to_index = {
 
 raise_for_missing_courses(all_courses, [req for major in ALL_MAJOR_REQUIREMENTS for req in major])
 
+parse_prerequisites(all_courses)
+
 print('Constructing model...')
 model = cp_model.CpModel()
 
@@ -266,10 +315,16 @@ takes_course_in_sem = {
     for c in range(len(all_courses)) 
     for s in range(NUM_SEMESTERS+1) 
 }
-# takes_course_in_sem[c] is true iff we take c in any semester
+# takes_course[c] is true iff we take c in any semester
 takes_course = {
     c: model.NewBoolVar('') 
     for c in range(len(all_courses)) 
+}
+# takes_course_by_sem[c, s] is true if we take c in semester s or earlier
+takes_course_by_sem = {
+    (c, s): model.NewBoolVar('') 
+    for c in range(len(all_courses)) 
+    for s in range(NUM_SEMESTERS+1) 
 }
 # satisfies[c, m, i] is true iff course c satisfies requirements[i] for major m
 satisfies = {
@@ -309,7 +364,7 @@ for s in range(1, NUM_SEMESTERS+1):
 # We only take a course at most once
 for c in range(len(all_courses)):
     model.Add(
-        sum(takes_course_in_sem[c, s] for s in range(NUM_SEMESTERS)) <= 1
+        sum(takes_course_in_sem[c, s] for s in range(NUM_SEMESTERS+1)) <= 1
     )
 
 # If we do not take a course, then it does not satisfy anything
@@ -395,22 +450,28 @@ for m in range(len(ALL_MAJOR_REQUIREMENTS)):
             is_satisfied[m, i] == 1
         )
 
-WANT_TO_TAKE = [
-    ('CIS-110', 0),
-    ('MATH-104', 0),
-    ('BIOL-101', 0),
-    ('CIS-160', 1),
-    ('CIS-120', 1),
-    ('MATH-114', 1),
-    ('CIS-121', 2),
-    ('CIS-240', 3),
-    ('CIS-320', 4),
-    ('CIS-400', 7),
-    ('CIS-401', 8),
-]
-pre_college_credits = set(
-    course_id for course_id, sem in WANT_TO_TAKE if sem == 0
-)
+# TODO: could try the quadratic approach to this and see how it fares
+# Reify takes_course_by_sem in terms of takes_course_in_sem
+for c in range(len(all_courses)):
+    model.Add(takes_course_by_sem[c, 0] == takes_course_in_sem[c, 0])
+    for s in range(1, NUM_SEMESTERS+1):
+        model.AddBoolOr([
+            takes_course_by_sem[c, s-1], takes_course_in_sem[c, s]
+        ]).OnlyEnforceIf(takes_course_by_sem[c, s])
+        model.AddBoolAnd([
+            takes_course_by_sem[c, s-1].Not(), takes_course_in_sem[c, s].Not()
+        ]).OnlyEnforceIf(takes_course_by_sem[c, s].Not())
+
+# If we have taken some course by sem s, we have taken its prereqs by sem s-1
+for c, course in enumerate(all_courses):
+    for prereq_id in course['prerequisites']:
+        # Ignore prereqs that we don't have an entry for
+        if (p := course_id_to_index.get(prereq_id)) is not None:
+            for s in range(1, NUM_SEMESTERS+1):
+                model.AddImplication(
+                    takes_course_by_sem[c, s], 
+                    takes_course_by_sem[p, s-1]
+                ) 
 
 for course_id, sem in WANT_TO_TAKE:
     model.Add(
@@ -420,13 +481,13 @@ for course_id, sem in WANT_TO_TAKE:
 # The zeroth semester represents AP credits, etc and can only be
 # populated manually
 for c, course in enumerate(all_courses):
-    if course['id'] not in pre_college_credits:
+    if course['id'] not in PRE_COLLEGE_CREDITS:
         model.Add(
             takes_course_in_sem[c, 0] == 0
         )
 
 # REDUNDANT: tell OR-tools some facts to help catch infeasible schedules:
-num_courses_ub = NUM_SEMESTERS * MAX_COURSES_PER_SEMESTER + len(pre_college_credits)
+num_courses_ub = NUM_SEMESTERS * MAX_COURSES_PER_SEMESTER + len(PRE_COLLEGE_CREDITS)
 num_courses_taken = model.NewIntVar(0, num_courses_ub, '')
 model.Add(
     num_courses_taken == sum(takes_course[c] for c in range(len(all_courses)))
@@ -473,9 +534,10 @@ if solver.Solve(model) in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
             requirement_names_str = ', '.join(requirement_names)
             # Indicate double-counted courses with a star
             maybe_star = '*' if len(requirement_names) > 1 else ''
-            print(f'{maybe_star}{course_id} (satisfies {requirement_names_str})')
+            print(f'> {maybe_star}{course_id} (satisfies {requirement_names_str})')
         
         print()
+
 else:
     print('Not possible to generate a schedule that meets the specifications!\n')
 

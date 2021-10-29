@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "CP2"
+version = "0.1.0"
+description = "Course Planning Constraint Program (CP^2): a constraint program for generating course schedules that satisfy the student's specifications."
+authors = ["Jediah Katz <jediahkatz@gmail.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.9"
+requests = "^2.26.0"
+ortools = "9.0.9048"
+
+[tool.poetry.dev-dependencies]
+mypy = "^0.910"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"

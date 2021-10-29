@@ -172,7 +172,7 @@ WH_REQUIREMENTS: list[Requirement] = [
 ]
 ALL_MAJOR_REQUIREMENTS: list[list[Requirement]] = [
     CIS_BSE_REQUIREMENTS,
-    # CIS_MSE_REQUIREMENTS
+    CIS_MSE_REQUIREMENTS
 ]
 
 def get_cached_value(filename: str, compute_value: Callable[[], str]):

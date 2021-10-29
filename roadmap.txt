@@ -1,0 +1,11 @@
+in-progress:
+- limit on double counting
+
+todo:
+- user can request to take class in any semester
+- big refactor (must do next after >1k LOC)
+
+done (reverse chrono):
+- user can request to take class in specified semester
+- parallelize API requests
+- cache API requests (to a local file)

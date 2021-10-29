@@ -334,17 +334,17 @@ for c in range(len(all_courses)):
 
 # If a course isn't satisfying anything, don't take it
 for c in range(len(all_courses)):
-    num_satisfied_by_course = model.NewIntVar(0, 1, '')
-    model.Add(
-        num_satisfied_by_course == sum(
-          satisfies[c, m, i] 
-          for m in range(len(ALL_MAJOR_REQUIREMENTS))
-          for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))
-        )
-    )
     course_satisfies_something = model.NewBoolVar('')
-    model.Add(num_satisfied_by_course == 1).OnlyEnforceIf(course_satisfies_something)
-    model.Add(num_satisfied_by_course == 0).OnlyEnforceIf(course_satisfies_something.Not())
+    model.AddBoolOr([
+        satisfies[c, m, i] 
+        for m in range(len(ALL_MAJOR_REQUIREMENTS))
+        for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))
+    ]).OnlyEnforceIf(course_satisfies_something)
+    model.AddBoolAnd([
+        satisfies[c, m, i].Not()
+        for m in range(len(ALL_MAJOR_REQUIREMENTS))
+        for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))
+    ]).OnlyEnforceIf(course_satisfies_something.Not())
     model.AddImplication(course_satisfies_something.Not(), takes_course[c].Not())
 
 # Redundant: a requirement should be satisfied by at exactly one course

@@ -15,8 +15,8 @@ ReqCategoryId = str
 NUM_SEMESTERS = 8
 MAX_COURSES_PER_SEMESTER = 5
 
-COURSES_CACHE_FILE = 'all_courses.txt'
-COURSE_INFOS_CACHE_FILE = 'course_infos.txt'
+COURSES_CACHE_FILE = 'all_courses.json'
+COURSE_INFOS_CACHE_FILE = 'course_infos.json'
 BASE_URL = 'https://penncourseplan.com/api/base'
 LIST_COURSES_API_URL = f'{BASE_URL}/current/courses/'
 REQS_API_URL = f'{BASE_URL}/current/requirements/'
@@ -219,17 +219,24 @@ def compute_course_infos(all_courses):
 
     return None
 
-print('Fetching all requirements')
-all_reqs: list[dict] = json.loads(requests.get(REQS_API_URL).text)
-print('Fetching all courses')
-all_courses: list[dict] = get_cached_value(
-    COURSES_CACHE_FILE, 
-    lambda: json.loads(requests.get(LIST_COURSES_API_URL).text)
-)
+def raise_for_missing_courses(all_courses: list[dict], requirements: list[Requirement]):
+    courses_from_reqs = set(
+        course_id for req in requirements for course_id in req.courses
+    )
+    course_ids = set(course['id'] for course in all_courses)
+    missing_courses = courses_from_reqs.difference(course_ids)
+    assert not missing_courses, f'There are missing courses: {missing_courses}'
+
+# TODO: deduplicate the entries
 print('Fetching all course requirement categories')
 course_infos: list[dict] = get_cached_value(
     COURSE_INFOS_CACHE_FILE,
-    lambda: compute_course_infos(all_courses)
+    lambda: compute_course_infos(
+        get_cached_value(
+            COURSES_CACHE_FILE, 
+            lambda: json.loads(requests.get(LIST_COURSES_API_URL).text)
+        )
+    )
 )
 
 # optimization to make the model smaller:
@@ -246,6 +253,8 @@ all_courses = [
 course_id_to_index = {
     course['id']: c for c, course in enumerate(all_courses)
 }
+
+raise_for_missing_courses(all_courses, [req for major in ALL_MAJOR_REQUIREMENTS for req in major])
 
 print('Constructing model...')
 model = cp_model.CpModel()
@@ -322,6 +331,21 @@ for c in range(len(all_courses)):
         model.Add(
             sum(satisfies[c, m, i] for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))) <= 1
         )
+
+# If a course isn't satisfying anything, don't take it
+for c in range(len(all_courses)):
+    num_satisfied_by_course = model.NewIntVar(0, 1, '')
+    model.Add(
+        num_satisfied_by_course == sum(
+          satisfies[c, m, i] 
+          for m in range(len(ALL_MAJOR_REQUIREMENTS))
+          for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))
+        )
+    )
+    course_satisfies_something = model.NewBoolVar('')
+    model.Add(num_satisfied_by_course == 1).OnlyEnforceIf(course_satisfies_something)
+    model.Add(num_satisfied_by_course == 0).OnlyEnforceIf(course_satisfies_something.Not())
+    model.AddImplication(course_satisfies_something.Not(), takes_course[c].Not())
 
 # Redundant: a requirement should be satisfied by at exactly one course
 for m in range(len(ALL_MAJOR_REQUIREMENTS)):

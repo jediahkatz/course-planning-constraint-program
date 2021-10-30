@@ -1,104 +1,23 @@
 # Idea: schedule generator, works like color palette generator (coolors.co)
 # Later can expand to 4yr plan
 
-from typing import Callable, Optional
-import requests
-import os.path
-import json
-from ortools.sat.python import cp_model
-from multiprocessing import Pool
-
-DeptId = str
-CourseId = str
-ReqCategoryId = str
+from cp2_types import CourseRequest, Id, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
+from fetch_data import fetch_course_infos
+from solver import generate_schedule
 
 NUM_SEMESTERS = 8
 MAX_COURSES_PER_SEMESTER = 5
 MAX_DOUBLE_COUNTING = 3
 
-COURSES_CACHE_FILE = 'all_courses.json'
-COURSE_INFOS_CACHE_FILE = 'course_infos.json'
-BASE_URL = 'https://penncourseplan.com/api/base'
-LIST_COURSES_API_URL = f'{BASE_URL}/current/courses/'
-REQS_API_URL = f'{BASE_URL}/current/requirements/'
-GET_COURSE_API = f'{BASE_URL}/current/courses/{{}}/'
+def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[Requirement]) -> None:
+    courses_from_reqs = set(
+        course_id for req in requirements for course_id in req.courses
+    )
+    course_ids = set(course['id'] for course in all_courses)
+    missing_courses = courses_from_reqs.difference(course_ids)
+    assert not missing_courses, f'There are missing courses: {missing_courses}'
 
-class Requirement:
-    """
-    A requirement that must be satisfied. Contains several optional
-    parameters; ALL set parameters must be satisfied for a course to
-    satisfy this requirement. If a list parameter is empty, it is
-    considered unset.
-
-    The parameters are as follows:
-
-    `categories`: a list of requirement categories; a course must
-    fulfill at least one of them.
-
-    `depts`: a list of departments; a course must be part of one of them.
-
-    `courses`: a list of courses; only these courses can satisfy this
-    requirement.
-
-    `min_number`: a lower bound for the course number.
-
-    `max_number`: an upper bound for the course number.
-    """
-    categories: set[ReqCategoryId]
-    depts: set[DeptId]
-    courses: set[CourseId]
-    min_number: int
-    max_number: int
-    nickname: str
-
-    def __init__(
-        self, 
-        categories: list[ReqCategoryId] = [], 
-        depts: list[DeptId] = [],
-        courses: list[CourseId] = [],
-        min_number = 0,
-        max_number = 0,
-        nickname = ''
-    ):
-        if not (categories or depts or courses):
-            raise ValueError('Requirement cannot be empty!')
-        self.categories = set(categories)
-        self.depts = set(depts)
-        self.courses = set(courses)
-        self.min_number = min_number
-        self.max_number = max_number
-        self.nickname = nickname
-
-    def __str__(self):
-        if self.nickname:
-            return f'<{self.nickname}>'
-        or_strings = [
-            f'[{" | ".join(alternatives)}]'
-            for alternatives in [self.categories, self.depts, self.courses]
-            if alternatives 
-        ]
-        req_string = ' & '.join(or_strings)
-        return f'<{req_string}>'
-
-    def satisfied_by_course(self, course_info: dict) -> bool:
-        categories = set(req['id'] for req in course_info['requirements'])
-        course_id = course_info['id']
-        dept, number = course_id.split('-')
-        try:
-            number = int(number)
-        except:
-            number = 0
-
-        category_satisfied = not self.categories or not categories.isdisjoint(self.categories)
-        dept_satisfied = not self.depts or dept in self.depts
-        course_satisfied = not self.courses or course_id in self.courses
-        min_satisfied = not self.min_number or number >= self.min_number
-        max_satisfied = not self.max_number or number <= self.max_number
-        return all((
-            category_satisfied, dept_satisfied, course_satisfied, min_satisfied, max_satisfied
-        ))
-
-CIS_BSE_REQUIREMENTS: list[Requirement] = [
+CIS_BSE_REQUIREMENTS: RequirementBlock = [
     # === ENGINEERING ===
     Requirement(courses=['CIS-110']),
     Requirement(courses=['CIS-120']),
@@ -136,7 +55,7 @@ CIS_BSE_REQUIREMENTS: list[Requirement] = [
     # # # === TODO: FREE ELECTIVE ===
     Requirement(categories=['H@SEAS'], nickname='Free Elective'),
 ]
-CIS_MSE_REQUIREMENTS: list[Requirement] = [
+CIS_MSE_REQUIREMENTS: RequirementBlock = [
     # === CORE COURSES ===
     # theory course
     Requirement(courses=['CIS-502', 'CIS-511', 'CIS-677'], nickname='Theory'),
@@ -171,14 +90,14 @@ CIS_MSE_REQUIREMENTS: list[Requirement] = [
         nickname='Grad Non-CIS'
     )] * 3),
 ]
-SEAS_REQUIREMENTS: list[Requirement] = [
+SEAS_REQUIREMENTS: RequirementBlock = [
     Requirement(categories=['ENG@SEAS']), 
     Requirement(categories=['MATH@SEAS']), 
     Requirement(categories=['H@SEAS']), 
     Requirement(categories=['SS@SEAS']),
     Requirement(depts=['CIS']), 
 ]
-WH_REQUIREMENTS: list[Requirement] = [
+WH_REQUIREMENTS: RequirementBlock = [
     Requirement(categories=['TIA@WH']), 
     Requirement(categories=['GEBS@WH']), 
     Requirement(categories=['H@WH']), 
@@ -186,374 +105,51 @@ WH_REQUIREMENTS: list[Requirement] = [
     Requirement(categories=['URE@WH']), 
     Requirement(categories=['NSME@WH']),
 ]
-SIMPLE_PREREQ_REQUIREMENTS = [
+SIMPLE_PREREQ_REQUIREMENTS: RequirementBlock = [
     Requirement(courses=['CIS-120']),
     Requirement(courses=['CIS-160']),
     Requirement(courses=['CIS-121']),
     Requirement(courses=['CIS-320']),
     Requirement(courses=['CIS-262']),
 ]
-ALL_MAJOR_REQUIREMENTS: list[list[Requirement]] = [
+ALL_MAJOR_REQUIREMENTS: list[RequirementBlock] = [
     CIS_BSE_REQUIREMENTS,
     CIS_MSE_REQUIREMENTS,
     # SIMPLE_PREREQ_REQUIREMENTS
 ]
 
-WANT_TO_TAKE: list[tuple[str, int]] = [
-    ('CIS-110', 0),
-    ('MATH-104', 0),
-    ('BIOL-101', 0),
-    ('CIS-160', 1),
-    ('CIS-120', 1),
-    ('MATH-114', 1),
-    ('CIS-121', 2),
-    ('CIS-320', 4),
-    ('CIS-400', 7),
-    ('CIS-401', 8),
+COURSE_REQUESTS: list[CourseRequest] = [
+    CourseRequest('CIS-110', 0),
+    CourseRequest('MATH-104', 0),
+    CourseRequest('BIOL-101', 0),
+    CourseRequest('CIS-160', 1),
+    CourseRequest('CIS-120', 1),
+    CourseRequest('MATH-114', 1),
+    CourseRequest('CIS-121', 2),
+    CourseRequest('CIS-320', 4),
+    CourseRequest('CIS-400', 7),
+    CourseRequest('CIS-401', 8),
 ]
-WANTED_COURSES = set(
-    course_id for course_id, _ in WANT_TO_TAKE
-)
-PRE_COLLEGE_CREDITS = set(
-    course_id for course_id, sem in WANT_TO_TAKE if sem == 0
+REQUESTED_COURSE_IDS = set(
+    course_id for course_id, _ in COURSE_REQUESTS
 )
 
-def get_cached_value(filename: str, compute_value: Callable[[], str]):
-    # TODO: add expiration
-    if os.path.exists(filename):
-        print('Cache hit!')
-        with open(filename, 'r') as f:
-            return json.loads(f.read())
-
-    print('Cache miss!')
-    val = compute_value()
-    if val is not None:
-        with open(filename, 'x') as f:
-            f.write(json.dumps(val))
-            return val
-
-def fetch_course_info(params) -> Optional[dict]:
-    i, course_id, n_total_courses = params
-    if i % 50 == 0:
-        print(f'Fetching info for course {i}/{n_total_courses}')
-    try:
-        course_info = json.loads(requests.get(GET_COURSE_API.format(course_id)).text)
-        # We don't need this attribute and it takes up lots of space
-        del course_info['description']
-        return course_info
-    except:
-        print(f'Failed to fetch info for course {course_id}')
-    return None
-
-def compute_course_infos(all_courses):
-    course_ids_and_idx = [(i, course['id'], len(all_courses)) for i, course in enumerate(all_courses)]
-    with open(COURSES_CACHE_FILE, 'x') as f:
-        f.write('[')
-        with Pool(20) as p:
-            course_infos = p.imap_unordered(fetch_course_info, course_ids_and_idx, 1)
-            i = 0
-            for course_info in course_infos:
-                i += 1
-                f.write(
-                    json.dumps(course_info) 
-                    + (', ' if i <= len(all_courses) else '')
-                )
-        f.write(']')
-
-    return None
-
-def raise_for_missing_courses(all_courses: list[dict], requirements: list[Requirement]):
-    courses_from_reqs = set(
-        course_id for req in requirements for course_id in req.courses
-    )
-    course_ids = set(course['id'] for course in all_courses)
-    missing_courses = courses_from_reqs.difference(course_ids)
-    assert not missing_courses, f'There are missing courses: {missing_courses}'
-
-# right now we only handle of the form 'DEPT 123, 456'
-def parse_prerequisites(all_courses):
-    for course in all_courses:
-        prereqs_string: str = course['prerequisites']
-        parts = prereqs_string.split(', ')
-        first_course = parts[0].split(' ')
-        if len(first_course) != 2:
-            # Ill-formatted
-            course['prerequisites'] = []
-            continue
-        dept, code = first_course
-        codes = [code] + parts[1:]
-        if dept != dept.strip() or any(code != code.strip() for code in codes):
-            # Ill-formatted
-            course['prerequisites'] = []
-            continue
-            
-        course['prerequisites'] = [f'{dept}-{code}' for code in codes]
-
-# TODO: deduplicate the entries
-print('Fetching all courses\' requirement categories')
-course_infos: list[dict] = get_cached_value(
-    COURSE_INFOS_CACHE_FILE,
-    lambda: compute_course_infos(
-        get_cached_value(
-            COURSES_CACHE_FILE, 
-            lambda: json.loads(requests.get(LIST_COURSES_API_URL).text)
-        )
-    )
-)
+all_courses = fetch_course_infos()
 
 # optimization to make the model smaller:
 # only need to consider courses that satisfy at least one of our requirements
 # TODO: may also need courses that are prerequisites for courses that satisfy 
 # TODO: add a course that represents a free elective
 all_courses = [
-    course for course in course_infos
-    if course['id'] in WANTED_COURSES or any(
+    course for course in all_courses
+    if course['id'] in REQUESTED_COURSE_IDS or any(
         req.satisfied_by_course(course)
         for major in ALL_MAJOR_REQUIREMENTS
         for req in major
     )
 ]
-course_id_to_index = {
-    course['id']: c for c, course in enumerate(all_courses)
-}
 
 raise_for_missing_courses(all_courses, [req for major in ALL_MAJOR_REQUIREMENTS for req in major])
 
-parse_prerequisites(all_courses)
-
-print('Constructing model...')
-model = cp_model.CpModel()
-
-# takes_course_in_sem[c, s] is true iff we take c in semester s
-takes_course_in_sem = {
-    (c, s): model.NewBoolVar('') 
-    for c in range(len(all_courses)) 
-    for s in range(NUM_SEMESTERS+1) 
-}
-# takes_course[c] is true iff we take c in any semester
-takes_course = {
-    c: model.NewBoolVar('') 
-    for c in range(len(all_courses)) 
-}
-# takes_course_by_sem[c, s] is true if we take c in semester s or earlier
-takes_course_by_sem = {
-    (c, s): model.NewBoolVar('') 
-    for c in range(len(all_courses)) 
-    for s in range(NUM_SEMESTERS+1) 
-}
-# satisfies[c, m, i] is true iff course c satisfies requirements[i] for major m
-satisfies = {
-    (c, m, i): model.NewBoolVar('')
-    for c in range(len(all_courses))
-    for m in range(len(ALL_MAJOR_REQUIREMENTS))
-    for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))
-}
-# satisfies[m, i] is true if requirements[i] for major m is satisfied
-is_satisfied = {
-    (m, i): model.NewBoolVar('')
-    for m in range(len(ALL_MAJOR_REQUIREMENTS))
-    for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))
-}
-
-# Reify takes_course in terms of takes_course_in_sem
-for c in range(len(all_courses)):
-    model.AddBoolOr([
-        takes_course_in_sem[c, s] for s in range(NUM_SEMESTERS+1)
-    ]).OnlyEnforceIf(
-        takes_course[c]
-    )
-    model.AddBoolAnd([
-        takes_course_in_sem[c, s].Not() for s in range(NUM_SEMESTERS+1)
-    ]).OnlyEnforceIf(
-        takes_course[c].Not()
-    )
-
-# Limit the number of courses we take per semester
-for s in range(1, NUM_SEMESTERS+1):
-    model.Add(
-        sum(takes_course_in_sem[c, s] for c in range(len(all_courses))) 
-        <= 
-        MAX_COURSES_PER_SEMESTER
-    )
-
-# We only take a course at most once
-for c in range(len(all_courses)):
-    model.Add(
-        sum(takes_course_in_sem[c, s] for s in range(NUM_SEMESTERS+1)) <= 1
-    )
-
-# If we do not take a course, then it does not satisfy anything
-for c in range(len(all_courses)):
-    for m in range(len(ALL_MAJOR_REQUIREMENTS)):
-        for i in range(len(ALL_MAJOR_REQUIREMENTS[m])):
-            model.AddImplication(takes_course[c].Not(), satisfies[c, m, i].Not())
-
-# A course cannot satisfy anything that it is not allowed to
-for c, course in enumerate(all_courses):
-    course_id = course['id']
-    for m in range(len(ALL_MAJOR_REQUIREMENTS)):
-        for i, req in enumerate(ALL_MAJOR_REQUIREMENTS[m]):
-            if not req.satisfied_by_course(course):
-                model.Add(satisfies[c, m, i] == 0)
-
-# A course can satisfy at most one requirement per major
-for c in range(len(all_courses)):
-    for m in range(len(ALL_MAJOR_REQUIREMENTS)):
-        model.Add(
-            sum(satisfies[c, m, i] for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))) <= 1
-        )
-
-# Limit double counting between majors
-# TODO: decide what to do about triple+ counting; right now it's disallowed
-# future BUG: if we allow triple counting, then need to change equation below:
-# total number of courses = total number of requirements - num_double_counts
-num_double_counts = 0
-for c in range(len(all_courses)):
-    num_times_counted = model.NewIntVar(0, 2, '')
-    model.Add(
-        num_times_counted == sum(
-            satisfies[c, m, i] 
-            for m in range(len(ALL_MAJOR_REQUIREMENTS))
-            for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))
-        )
-    )
-    is_double_counted = model.NewBoolVar('')
-    num_double_counts += is_double_counted
-    model.Add(num_times_counted == 2).OnlyEnforceIf(is_double_counted)
-    model.Add(num_times_counted < 2).OnlyEnforceIf(is_double_counted.Not())
-model.Add(num_double_counts <= MAX_DOUBLE_COUNTING)
-
-# If a course isn't satisfying anything, don't take it
-for c in range(len(all_courses)):
-    course_satisfies_something = model.NewBoolVar('')
-    model.AddBoolOr([
-        satisfies[c, m, i] 
-        for m in range(len(ALL_MAJOR_REQUIREMENTS))
-        for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))
-    ]).OnlyEnforceIf(course_satisfies_something)
-    model.AddBoolAnd([
-        satisfies[c, m, i].Not()
-        for m in range(len(ALL_MAJOR_REQUIREMENTS))
-        for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))
-    ]).OnlyEnforceIf(course_satisfies_something.Not())
-    model.AddImplication(course_satisfies_something.Not(), takes_course[c].Not())
-
-# Redundant: a requirement should be satisfied by at exactly one course
-for m in range(len(ALL_MAJOR_REQUIREMENTS)):
-    for i in range(len(ALL_MAJOR_REQUIREMENTS[m])):
-        model.Add(
-            sum(satisfies[c, m, i] for c in range(len(all_courses))) == 1
-        )
-
-# Reify is_satisfied in terms of satisfies
-for m in range(len(ALL_MAJOR_REQUIREMENTS)):
-    for i in range(len(ALL_MAJOR_REQUIREMENTS[m])):
-        model.AddBoolOr([
-            satisfies[c, m, i] for c in range(len(all_courses))
-        ]).OnlyEnforceIf(
-            is_satisfied[m, i]
-        )
-        
-        model.AddBoolAnd([
-            satisfies[c, m, i].Not() for c in range(len(all_courses))
-        ]).OnlyEnforceIf(
-            is_satisfied[m, i].Not()
-        )
-
-        # All requirements must be satisfied
-        model.Add(
-            is_satisfied[m, i] == 1
-        )
-
-# TODO: could try the quadratic approach to this and see how it fares
-# Reify takes_course_by_sem in terms of takes_course_in_sem
-for c in range(len(all_courses)):
-    model.Add(takes_course_by_sem[c, 0] == takes_course_in_sem[c, 0])
-    for s in range(1, NUM_SEMESTERS+1):
-        model.AddBoolOr([
-            takes_course_by_sem[c, s-1], takes_course_in_sem[c, s]
-        ]).OnlyEnforceIf(takes_course_by_sem[c, s])
-        model.AddBoolAnd([
-            takes_course_by_sem[c, s-1].Not(), takes_course_in_sem[c, s].Not()
-        ]).OnlyEnforceIf(takes_course_by_sem[c, s].Not())
-
-# If we have taken some course by sem s, we have taken its prereqs by sem s-1
-for c, course in enumerate(all_courses):
-    for prereq_id in course['prerequisites']:
-        # Ignore prereqs that we don't have an entry for
-        if (p := course_id_to_index.get(prereq_id)) is not None:
-            for s in range(1, NUM_SEMESTERS+1):
-                model.AddImplication(
-                    takes_course_by_sem[c, s], 
-                    takes_course_by_sem[p, s-1]
-                ) 
-
-for course_id, sem in WANT_TO_TAKE:
-    model.Add(
-        takes_course_in_sem[course_id_to_index[course_id], sem] == 1
-    )
-
-# The zeroth semester represents AP credits, etc and can only be
-# populated manually
-for c, course in enumerate(all_courses):
-    if course['id'] not in PRE_COLLEGE_CREDITS:
-        model.Add(
-            takes_course_in_sem[c, 0] == 0
-        )
-
-# REDUNDANT: tell OR-tools some facts to help catch infeasible schedules:
-num_courses_ub = NUM_SEMESTERS * MAX_COURSES_PER_SEMESTER + len(PRE_COLLEGE_CREDITS)
-num_courses_taken = model.NewIntVar(0, num_courses_ub, '')
-model.Add(
-    num_courses_taken == sum(takes_course[c] for c in range(len(all_courses)))
-)
-num_major_requirements = sum(len(major) for major in ALL_MAJOR_REQUIREMENTS)
-model.Add(
-    num_courses_taken >= num_major_requirements - num_double_counts
-)
-
-# model.Add(num_courses_taken == 7)
-# model.Minimize(num_courses_taken)
-
-solver = cp_model.CpSolver()
-solver.parameters.num_search_workers = 8
-
-print('Solving...')
-if solver.Solve(model) in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-    print(f'Solution found ({solver.Value(num_courses_taken)} courses over {NUM_SEMESTERS} semesters)')
-    print()
-    for s in range(NUM_SEMESTERS+1):
-        course_indices = [
-            c for c in range(len(all_courses))
-            if solver.Value(takes_course_in_sem[c, s]) == 1
-        ]
-        course_indices_to_satisfied_major_req_indices = {
-            c: [
-                (m, i)
-                for m in range(len(ALL_MAJOR_REQUIREMENTS))
-                for i in range(len(ALL_MAJOR_REQUIREMENTS[m]))
-                if solver.Value(satisfies[c, m, i]) == 1
-            ]
-            for c in course_indices
-        }
-
-        print(f'SEMESTER {s}:')
-        print('------------------')
-
-        for c in course_indices:
-            course_id = all_courses[c]['id']
-            requirement_names = [
-                str(ALL_MAJOR_REQUIREMENTS[m][i])
-                for (m, i) in course_indices_to_satisfied_major_req_indices[c]
-            ]
-            requirement_names_str = ', '.join(requirement_names)
-            # Indicate double-counted courses with a star
-            maybe_star = '*' if len(requirement_names) > 1 else ''
-            print(f'+ {maybe_star}{course_id} (satisfies {requirement_names_str})')
-        
-        print()
-
-else:
-    print('Not possible to generate a schedule that meets the specifications!\n')
-
-print(solver.ResponseStats())
+params = ScheduleParams(NUM_SEMESTERS, MAX_COURSES_PER_SEMESTER, MAX_DOUBLE_COUNTING)
+generate_schedule(all_courses, ALL_MAJOR_REQUIREMENTS, COURSE_REQUESTS, params)

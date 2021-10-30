@@ -1,3 +1,4 @@
+from collections import defaultdict
 from typing_extensions import IntVar
 from ortools.sat.python import cp_model
 from cp2_types import (
@@ -8,12 +9,11 @@ PRECOLLEGE_SEM: Index = 0
 
 def generate_schedule(
     all_courses: list[CourseInfo],
-    major_requirements: list[RequirementBlock],
     course_requests: list[CourseRequest],
     schedule_params: ScheduleParams,
 ) -> None:
     """ Attempt to generate a schedule from the inputs and print it. """
-    generator = ScheduleGenerator(all_courses, major_requirements, course_requests, schedule_params)
+    generator = ScheduleGenerator(all_courses, course_requests, schedule_params)
     generator.solve()
 
 class ScheduleGenerator:
@@ -32,13 +32,13 @@ class ScheduleGenerator:
     # Data
     all_courses: list[CourseInfo]
     course_id_to_index: dict[Id, Index]
-    major_requirements: list[RequirementBlock]
     schedule_params: ScheduleParams
     precollege_credits: set[Id]
     course_indices: range
     semester_indices: range
     semester_indices_with_precollege: range
-    major_indices: range
+    requirement_block_indices: range
+    requirement_indices_of_block: list[range]
     
     # Model
     model: cp_model.CpModel
@@ -53,7 +53,6 @@ class ScheduleGenerator:
     def __init__(
         self,
         all_courses: list[CourseInfo], 
-        major_requirements: list[RequirementBlock],
         course_requests: list[CourseRequest],
         schedule_params: ScheduleParams,
     ) -> None:
@@ -62,11 +61,23 @@ class ScheduleGenerator:
         self.all_courses = all_courses
         self.course_id_to_index = {course_id['id']: c for c, course_id in enumerate(all_courses)}
         self.course_indices = range(len(all_courses))
-        self.major_requirements = major_requirements
-        self.major_indices = range(len(major_requirements))
+        self.requirement_block_indices = range(len(schedule_params.requirement_blocks))
+        self.requirement_indices_of_block = [
+            range(len(schedule_params.requirement_blocks[b])) for b in self.requirement_block_indices
+        ]
         self.course_requests = course_requests
-        self.precollege_credits = set(request.course_id for request in course_requests if request.semester == PRECOLLEGE_SEM)
+        self.precollege_credits = set(
+            request.course_id for request in course_requests if request.semester == PRECOLLEGE_SEM
+        )
         self.schedule_params = schedule_params
+        # Clean schedule_params.max_double_counts entries that are None (i.e., no limit)
+        for (b1, b2), max_counts in schedule_params.max_double_counts.items():
+            if max_counts is None:
+                # If we have unlimited double counts, we can upper bound by the smaller block size
+                requirement_blocks = self.schedule_params.requirement_blocks
+                min_block_size = min(len(requirement_blocks[b1]), len(requirement_blocks[b2]))
+                schedule_params.max_double_counts[b1, b2] = min_block_size
+
         self.semester_indices = range(1, schedule_params.num_semesters+1)
         self.semester_indices_with_precollege = range(schedule_params.num_semesters+1)
         self.create_cp_vars()
@@ -75,7 +86,7 @@ class ScheduleGenerator:
             self.link_satisfies_vars,
             self.satisfy_all_requirements_once,
             self.enforce_max_courses_per_semester,
-            self.enforce_max_double_counting,
+            self.enforce_double_counting_rules,
             self.take_courses_at_most_once,
             self.must_take_course_to_count,
             self.courses_only_satisfy_requirements,
@@ -96,17 +107,17 @@ class ScheduleGenerator:
         if solver.Solve(self.model) in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
             print(f'Solution found ({solver.Value(self.num_courses_taken)} courses in {self.schedule_params.num_semesters} semesters)')
             print()
-            for s in self.semester_indices:
+            for s in self.semester_indices_with_precollege:
                 course_indices: list[Index] = [
                     c for c in self.course_indices
                     if solver.Value(self.takes_course_in_sem[c, s]) == 1
                 ]
-                course_indices_to_satisfied_major_req_indices = {
+                course_indices_to_satisfied_block_req_indices = {
                     c: [
-                        (m, i)
-                        for m in self.major_indices
-                        for i in range(len(self.major_requirements[m]))
-                        if solver.Value(self.satisfies[c, m, i]) == 1
+                        (b, r)
+                        for b in self.requirement_block_indices
+                        for r in self.requirement_indices_of_block[b]
+                        if solver.Value(self.satisfies[c, b, r]) == 1
                     ]
                     for c in course_indices
                 }
@@ -117,8 +128,8 @@ class ScheduleGenerator:
                 for c in course_indices:
                     course_id = self.all_courses[c]['id']
                     requirement_names = [
-                        str(self.major_requirements[m][i])
-                        for (m, i) in course_indices_to_satisfied_major_req_indices[c]
+                        str(self.schedule_params.requirement_blocks[b][r])
+                        for (b, r) in course_indices_to_satisfied_block_req_indices[c]
                     ]
                     requirement_names_str = ', '.join(requirement_names)
                     # Indicate double-counted courses with a star
@@ -136,8 +147,8 @@ class ScheduleGenerator:
         """ Initialize all CP variables. """
         model = self.model
 
-        # number of courses that count across more than one requirement block
-        self.num_double_counts = model.NewIntVar(0, self.schedule_params.max_double_counting, '')
+        # number of times we double count
+        self.num_double_counts = model.NewIntVar(0, sum(self.schedule_params.max_double_counts.values()), '')
         # takes_course_in_sem[c, s] is true iff we take c in semester s
         self.takes_course_in_sem = {
             (c, s): model.NewBoolVar('') 
@@ -155,18 +166,18 @@ class ScheduleGenerator:
             for c in self.course_indices 
             for s in self.semester_indices_with_precollege
         }
-        # satisfies[c, m, i] is true iff course c satisfies requirements[i] for major m
+        # satisfies[c, b, r] is true iff course c satisfies requirements[r] for block b
         self.satisfies = {
-            (c, m, i): model.NewBoolVar('')
+            (c, b, r): model.NewBoolVar('')
             for c in self.course_indices
-            for m in self.major_indices
-            for i in range(len(self.major_requirements[m]))
+            for b in self.requirement_block_indices
+            for r in self.requirement_indices_of_block[b]
         }
-        # satisfies[m, i] is true if requirements[i] for major m is satisfied
+        # satisfies[b, r] is true if requirements[r] for block b is satisfied
         self.is_satisfied = {
-            (m, i): model.NewBoolVar('')
-            for m in self.major_indices
-            for i in range(len(self.major_requirements[m]))
+            (b, r): model.NewBoolVar('')
+            for b in self.requirement_block_indices
+            for r in self.requirement_indices_of_block[b]
         }
 
     def link_takes_course_vars(self) -> None:
@@ -200,32 +211,32 @@ class ScheduleGenerator:
     def link_satisfies_vars(self) -> None:
         """ Reify `is_satisfied` in terms of `satisfies`. """
         model = self.model
-        for m in self.major_indices:
-            for i in range(len(self.major_requirements[m])):
+        for b in self.requirement_block_indices:
+            for r in self.requirement_indices_of_block[b]:
                 model.AddBoolOr([
-                    self.satisfies[c, m, i] for c in self.course_indices
+                    self.satisfies[c, b, r] for c in self.course_indices
                 ]).OnlyEnforceIf(
-                    self.is_satisfied[m, i]
+                    self.is_satisfied[b, r]
                 )
                 
                 model.AddBoolAnd([
-                    self.satisfies[c, m, i].Not() for c in self.course_indices
+                    self.satisfies[c, b, r].Not() for c in self.course_indices
                 ]).OnlyEnforceIf(
-                    self.is_satisfied[m, i].Not()
+                    self.is_satisfied[b, r].Not()
                 )
 
     def satisfy_all_requirements_once(self) -> None:
         """ All requirements must be satisfied by exactly one course. """
         model = self.model
-        for m in self.major_indices:
-            for i in range(len(self.major_requirements[m])):
+        for b in self.requirement_block_indices:
+            for r in self.requirement_indices_of_block[b]:
                 # A requirement should be satisfied by exactly one course
                 model.Add(
-                    sum(self.satisfies[c, m, i] for c in self.course_indices) == 1
+                    sum(self.satisfies[c, b, r] for c in self.course_indices) == 1
                 )
                 # Redundant: all requirements must be satisfied
                 model.Add(
-                    self.is_satisfied[m, i] == 1
+                    self.is_satisfied[b, r] == 1
                 )
         
     def enforce_max_courses_per_semester(self) -> None:
@@ -238,31 +249,50 @@ class ScheduleGenerator:
                 self.schedule_params.max_courses_per_semester
             )
 
-    def enforce_max_double_counting(self) -> None:
+    def enforce_double_counting_rules(self) -> None:
         """ Limit the number of courses that can be double counted based on the schedule params. """
-        # TODO: decide what to do about triple+ counting; right now it's disallowed
-        # possible future BUG: if we allow triple counting, then need to change equation below:
-        # total number of courses = total number of requirements - num_double_counts
         model = self.model
+        # possible future BUG: if we ever allow triple counting, then need to change equation below:
+        # total number of courses = total number of requirements - num_double_counts
 
-        double_count_boolvars = []
+        double_counts_boolvars_between: defaultdict[tuple[Index, Index], list[cp_model.IntVar]]
+        double_counts_boolvars_between = defaultdict(list)
+
         for c in self.course_indices:
-            num_times_counted = model.NewIntVar(0, 2, '')
+            # Disallow triple counting
+            total_num_times_counted = model.NewIntVar(0, 2, '')
             model.Add(
-                num_times_counted == sum(
-                    self.satisfies[c, m, i] 
-                    for m in self.major_indices
-                    for i in range(len(self.major_requirements[m]))
+                total_num_times_counted == sum(
+                    self.satisfies[c, b, r] 
+                    for b in self.requirement_block_indices
+                    for r in self.requirement_indices_of_block[b]
                 )
             )
-            is_double_counted = model.NewBoolVar('')
-            double_count_boolvars.append(is_double_counted)
-            model.Add(num_times_counted == 2).OnlyEnforceIf(is_double_counted)
-            model.Add(num_times_counted < 2).OnlyEnforceIf(is_double_counted.Not())
+
+            # Count the number of double counts between each pair of blocks
+            for b1, b2 in self.schedule_params.max_double_counts.keys():
+                num_times_counted_in_either_block = model.NewIntVar(0, 2, '')
+                model.Add(
+                    num_times_counted_in_either_block == sum(
+                        self.satisfies[c, b, r]
+                        for b in [b1, b2]
+                        for r in self.requirement_indices_of_block[b]
+                    )
+                )
+                is_double_counted = model.NewBoolVar('')
+                model.Add(num_times_counted_in_either_block == 2).OnlyEnforceIf(is_double_counted)
+                model.Add(num_times_counted_in_either_block != 2).OnlyEnforceIf(is_double_counted.Not())
+                double_counts_boolvars_between[b1, b2].append(is_double_counted)
+
+        # Allow at most max_double_counts[b1, b2] courses to double count between blocks b1 and b2
+        for (b1, b2), max_double_counts in self.schedule_params.max_double_counts.items():
+            num_double_counts_between_blocks = model.NewIntVar(0, max_double_counts, '')
+            model.Add(
+                num_double_counts_between_blocks == sum(double_counts_boolvars_between[b1, b2])
+            )
 
         # note: this is just the definition of num_double_counts
-        # the upper bound comes from our initialization of num_double_counts in create_cp_vars()
-        model.Add(self.num_double_counts == sum(double_count_boolvars))
+        model.Add(self.num_double_counts == sum(sum(l) for l in double_counts_boolvars_between.values()))
 
     def take_courses_at_most_once(self) -> None:
         """ We should only take a course at most once. """
@@ -276,29 +306,29 @@ class ScheduleGenerator:
         """ If we do not take a course, then it does not satisfy anything. """
         model = self.model
         for c in self.course_indices:
-            for m in self.major_indices:
-                for i in range(len(self.major_requirements[m])):
+            for b in self.requirement_block_indices:
+                for r in self.requirement_indices_of_block[b]:
                     model.AddImplication(
                         self.takes_course[c].Not(), 
-                        self.satisfies[c, m, i].Not()
+                        self.satisfies[c, b, r].Not()
                     )
 
     def courses_only_satisfy_requirements(self) -> None:
         """ A course cannot satisfy anything that it is not allowed to. """
         model = self.model
         for c, course in enumerate(self.all_courses):
-            for m in self.major_indices:
-                for i, req in enumerate(self.major_requirements[m]):
+            for b in self.requirement_block_indices:
+                for r, req in enumerate(self.schedule_params.requirement_blocks[b]):
                     if not req.satisfied_by_course(course):
-                        model.Add(self.satisfies[c, m, i] == 0)
+                        model.Add(self.satisfies[c, b, r] == 0)
 
     def no_double_counting_within_requirement_blocks(self) -> None:
         """ A course can only count once within a single block of requirements. """
         model = self.model
         for c in self.course_indices:
-            for m in self.major_indices:
+            for b in self.requirement_block_indices:
                 model.Add(
-                    sum(self.satisfies[c, m, i] for i in range(len(self.major_requirements[m]))) <= 1
+                    sum(self.satisfies[c, b, r] for r in self.requirement_indices_of_block[b]) <= 1
                 )
 
     def dont_take_unnecessary_courses(self) -> None:
@@ -308,14 +338,14 @@ class ScheduleGenerator:
         for c in self.course_indices:
             course_satisfies_something = model.NewBoolVar('')
             model.AddBoolOr([
-                self.satisfies[c, m, i] 
-                for m in self.major_indices
-                for i in range(len(self.major_requirements[m]))
+                self.satisfies[c, b, r] 
+                for b in self.requirement_block_indices
+                for r in self.requirement_indices_of_block[b]
             ]).OnlyEnforceIf(course_satisfies_something)
             model.AddBoolAnd([
-                self.satisfies[c, m, i].Not()
-                for m in self.major_indices
-                for i in range(len(self.major_requirements[m]))
+                self.satisfies[c, b, r].Not()
+                for b in self.requirement_block_indices
+                for r in self.requirement_indices_of_block[b]
             ]).OnlyEnforceIf(course_satisfies_something.Not())
             model.AddImplication(course_satisfies_something.Not(), self.takes_course[c].Not())
 
@@ -355,14 +385,14 @@ class ScheduleGenerator:
         """ Give the model some helpful facts to recognize schedules with too many courses to be feasible. """
         model = self.model
         num_semesters = self.schedule_params.num_semesters
-        max_courses_per_semester  = self.schedule_params.max_courses_per_semester
+        max_courses_per_semester = self.schedule_params.max_courses_per_semester
 
         num_courses_ub = num_semesters * max_courses_per_semester + len(self.precollege_credits)
         self.num_courses_taken = model.NewIntVar(0, num_courses_ub, '')
         model.Add(
             self.num_courses_taken == sum(self.takes_course[c] for c in self.course_indices)
         )
-        num_major_requirements = sum(len(major) for major in self.major_requirements)
+        total_num_requirements = sum(len(block) for block in self.schedule_params.requirement_blocks)
         model.Add(
-            self.num_courses_taken >= num_major_requirements - self.num_double_counts
+            self.num_courses_taken >= total_num_requirements - self.num_double_counts
         )

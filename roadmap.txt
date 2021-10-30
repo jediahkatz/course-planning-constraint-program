@@ -4,12 +4,12 @@ todo:
 - enforce complex prerequisites (e.g. ECON 001 AND (STAT 101 OR STAT 102))
 - user can request to take class in any semester
 - handle courses missing across fall/spring
-- create a better system for double counting (+ courses that always double count)
 - change course requests to semester requirements (can maybe keep course requests api)
 - logging
 - write tests
 
 done (reverse chrono):
+- create a better system for double counting (+ reqs that can always double count)
 - big refactor + types
 - requirements can have nicknames
 - enforce basic prerequisites (e.g. CIS 120, 160)

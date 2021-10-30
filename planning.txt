@@ -1,0 +1,32 @@
+> feature: change course requests to semester requirements
+
+> feature: reate a better system for double counting (+ reqs that can always double count)
+list of example rules on double counting:
+# college
+- can double count at most one course per major with the sector requirement
+- majors in (set S of majors) can double count two courses in major with two specific sectors
+- double majors must have 18 unique courses between the two majors (24 for triple majors)
+- can count unlimited courses between gen ed and minor
+- can count unlimited courses between foundational approach and (major, minor, sector)
+- can count one course between two majors
+- can double count at most 4 courses between submat and undergrad
+# eng
+- can count at most two courses for minor with courses specified on course planning guide
+- must take at least 22 eng courses to double major
+- can double count at most 3 courses between submat and undergrad
+- no course can be triple counted
+# wharton
+- can always double count free electives with concentration, but can count at most one business breadth 
+
+then major_requirements becomes requirement_blocks = [CIS_BSE, CIS_MSE, SEAS_DEPTH, SEAS_WRIT, SEAS_ETHICS]
+then we have Curriculum = { requirement_blocks, double_count_matrix }
+double_count_matrix[block1_idx][block2_idx] = max number of courses that can double count between the two blocks
+
+that would get us everything except:
+- no course can be triple counted
+- majors in (set S of majors) can double count two courses in major with two specific sectors
+- must take at least 22 eng courses to double major
+
+we should directly enforce no triple counting; in fact we should enforce it globally to
+make thing nicer
+the other two we can ignore for now

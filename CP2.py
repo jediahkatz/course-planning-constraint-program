@@ -1,23 +1,15 @@
 # Idea: schedule generator, works like color palette generator (coolors.co)
 # Later can expand to 4yr plan
 
-from cp2_types import CourseRequest, Id, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
+from typing import Optional
+from cp2_types import CourseRequest, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
 from fetch_data import fetch_course_infos
 from solver import generate_schedule
 
 NUM_SEMESTERS = 8
 MAX_COURSES_PER_SEMESTER = 5
-MAX_DOUBLE_COUNTING = 3
 
-def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[Requirement]) -> None:
-    courses_from_reqs = set(
-        course_id for req in requirements for course_id in req.courses
-    )
-    course_ids = set(course['id'] for course in all_courses)
-    missing_courses = courses_from_reqs.difference(course_ids)
-    assert not missing_courses, f'There are missing courses: {missing_courses}'
-
-CIS_BSE_REQUIREMENTS: RequirementBlock = [
+CIS_BSE: RequirementBlock = [
     # === ENGINEERING ===
     Requirement(courses=['CIS-110']),
     Requirement(courses=['CIS-120']),
@@ -55,7 +47,13 @@ CIS_BSE_REQUIREMENTS: RequirementBlock = [
     # # # === TODO: FREE ELECTIVE ===
     Requirement(categories=['H@SEAS'], nickname='Free Elective'),
 ]
-CIS_MSE_REQUIREMENTS: RequirementBlock = [
+SEAS_DEPTH: RequirementBlock = [
+    # TODO need a way to require two from same dept...
+]
+SEAS_WRIT: RequirementBlock = [
+    Requirement(depts=['WRIT'], max_number=99)
+]
+CIS_MSE: RequirementBlock = [
     # === CORE COURSES ===
     # theory course
     Requirement(courses=['CIS-502', 'CIS-511', 'CIS-677'], nickname='Theory'),
@@ -90,33 +88,18 @@ CIS_MSE_REQUIREMENTS: RequirementBlock = [
         nickname='Grad Non-CIS'
     )] * 3),
 ]
-SEAS_REQUIREMENTS: RequirementBlock = [
-    Requirement(categories=['ENG@SEAS']), 
-    Requirement(categories=['MATH@SEAS']), 
-    Requirement(categories=['H@SEAS']), 
-    Requirement(categories=['SS@SEAS']),
-    Requirement(depts=['CIS']), 
+
+ALL_REQUIREMENT_BLOCKS: list[RequirementBlock] = [
+    CIS_BSE,
+    CIS_MSE,
+    SEAS_WRIT,
 ]
-WH_REQUIREMENTS: RequirementBlock = [
-    Requirement(categories=['TIA@WH']), 
-    Requirement(categories=['GEBS@WH']), 
-    Requirement(categories=['H@WH']), 
-    Requirement(categories=['SS@WH']), 
-    Requirement(categories=['URE@WH']), 
-    Requirement(categories=['NSME@WH']),
-]
-SIMPLE_PREREQ_REQUIREMENTS: RequirementBlock = [
-    Requirement(courses=['CIS-120']),
-    Requirement(courses=['CIS-160']),
-    Requirement(courses=['CIS-121']),
-    Requirement(courses=['CIS-320']),
-    Requirement(courses=['CIS-262']),
-]
-ALL_MAJOR_REQUIREMENTS: list[RequirementBlock] = [
-    CIS_BSE_REQUIREMENTS,
-    CIS_MSE_REQUIREMENTS,
-    # SIMPLE_PREREQ_REQUIREMENTS
-]
+block_idx = lambda block: {tuple(block): b for b, block in enumerate(ALL_REQUIREMENT_BLOCKS)}[tuple(block)]
+MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
+    (block_idx(CIS_BSE), block_idx(CIS_MSE)): 3,
+    (block_idx(CIS_BSE), block_idx(SEAS_WRIT)): None,
+    (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0
+}
 
 COURSE_REQUESTS: list[CourseRequest] = [
     CourseRequest('CIS-110', 0),
@@ -134,6 +117,14 @@ REQUESTED_COURSE_IDS = set(
     course_id for course_id, _ in COURSE_REQUESTS
 )
 
+def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[Requirement]) -> None:
+    courses_from_reqs = set(
+        course_id for req in requirements for course_id in req.courses
+    )
+    course_ids = set(course['id'] for course in all_courses)
+    missing_courses = courses_from_reqs.difference(course_ids)
+    assert not missing_courses, f'There are missing courses: {missing_courses}'
+
 all_courses = fetch_course_infos()
 
 # optimization to make the model smaller:
@@ -144,12 +135,17 @@ all_courses = [
     course for course in all_courses
     if course['id'] in REQUESTED_COURSE_IDS or any(
         req.satisfied_by_course(course)
-        for major in ALL_MAJOR_REQUIREMENTS
+        for major in ALL_REQUIREMENT_BLOCKS
         for req in major
     )
 ]
 
-raise_for_missing_courses(all_courses, [req for major in ALL_MAJOR_REQUIREMENTS for req in major])
+raise_for_missing_courses(all_courses, [req for major in ALL_REQUIREMENT_BLOCKS for req in major])
 
-params = ScheduleParams(NUM_SEMESTERS, MAX_COURSES_PER_SEMESTER, MAX_DOUBLE_COUNTING)
-generate_schedule(all_courses, ALL_MAJOR_REQUIREMENTS, COURSE_REQUESTS, params)
+params = ScheduleParams(
+    NUM_SEMESTERS,
+    MAX_COURSES_PER_SEMESTER,
+    ALL_REQUIREMENT_BLOCKS,
+    MAX_DOUBLE_COUNTING
+)
+generate_schedule(all_courses, COURSE_REQUESTS, params)

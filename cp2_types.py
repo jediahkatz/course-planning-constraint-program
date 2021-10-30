@@ -11,11 +11,6 @@ class CourseRequest(NamedTuple):
     course_id: Id
     semester: Index
 
-class ScheduleParams(NamedTuple):
-    num_semesters: int
-    max_courses_per_semester: int
-    max_double_counting: int
-
 class ReqCategoryInfo(TypedDict):
     id: Id
     code: str
@@ -112,4 +107,13 @@ class Requirement:
             category_satisfied, dept_satisfied, course_satisfied, min_satisfied, max_satisfied
         ))
         
+
 RequirementBlock = list[Requirement]
+
+class ScheduleParams(NamedTuple):
+    num_semesters: int
+    max_courses_per_semester: int
+    requirement_blocks: list[RequirementBlock]
+    # max_double_counts[block1_index, block2_index] is the max number of courses that can double count for
+    # block1 and block2, where block1_idx < block_idx. 'None' entries can double count unlimited times.
+    max_double_counts: dict[tuple[Index, Index], Optional[int]]

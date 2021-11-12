@@ -130,7 +130,7 @@ all_courses = fetch_course_infos()
 # optimization to make the model smaller:
 # only need to consider courses that satisfy at least one of our requirements
 # TODO: may also need courses that are prerequisites for courses that satisfy 
-# TODO: add a course that represents a free elective
+# TODO: add a wildcard course that represents a free elective?
 all_courses = [
     course for course in all_courses
     if course['id'] in REQUESTED_COURSE_IDS or any(
@@ -148,4 +148,4 @@ params = ScheduleParams(
     ALL_REQUIREMENT_BLOCKS,
     MAX_DOUBLE_COUNTING
 )
-generate_schedule(all_courses, COURSE_REQUESTS, params)
+generate_schedule(all_courses, COURSE_REQUESTS, params, verbose=True)

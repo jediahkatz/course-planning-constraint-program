@@ -1,8 +1,9 @@
 from collections import defaultdict
+from typing import Optional
 from typing_extensions import IntVar
 from ortools.sat.python import cp_model
 from cp2_types import (
-    CourseInfo, ScheduleParams, CourseRequest, RequirementBlock, Id, Index, VarMap1D, VarMap2D, VarMap3D
+    CourseInfo, ScheduleParams, CourseRequest, Schedule, Id, Index, VarMap1D, VarMap2D, VarMap3D
 )
 
 PRECOLLEGE_SEM: Index = 0
@@ -11,10 +12,43 @@ def generate_schedule(
     all_courses: list[CourseInfo],
     course_requests: list[CourseRequest],
     schedule_params: ScheduleParams,
-) -> None:
+    verbose: bool = False,
+) -> Optional[tuple[Schedule, dict[Id, list[tuple[Index, Index]]]]]:
     """ Attempt to generate a schedule from the inputs and print it. """
+    if verbose:
+        print('Constructing model...')
     generator = ScheduleGenerator(all_courses, course_requests, schedule_params)
-    generator.solve()
+    if verbose:
+        print('Solving model...')
+    if (soln := generator.solve(verbose=verbose)):
+        schedule, course_id_to_requirement_index = soln
+    else:
+        print('Not possible to generate a schedule that meets the specifications!\n')
+        return None
+
+    num_semesters = len(schedule)
+    num_courses_taken = sum(len(sem) for sem in schedule)
+    if verbose:
+        print(f'Solution found ({num_courses_taken} courses in {num_semesters} semesters)')
+        print()
+
+        for s, semester in enumerate(schedule):
+            print(f'SEMESTER {s}:')
+            print('------------------')
+
+            for course_id in semester:
+                requirement_names = [
+                    str(schedule_params.requirement_blocks[b][r])
+                    for (b, r) in course_id_to_requirement_index[course_id]
+                ]
+                requirement_names_str = ', '.join(requirement_names)
+                # Indicate double-counted courses with a star
+                maybe_star = '*' if len(requirement_names) > 1 else ''
+                print(f'+ {maybe_star}{course_id} (satisfies {requirement_names_str})')
+            print()
+
+    return schedule, course_id_to_requirement_index
+
 
 class ScheduleGenerator:
     """
@@ -56,7 +90,6 @@ class ScheduleGenerator:
         course_requests: list[CourseRequest],
         schedule_params: ScheduleParams,
     ) -> None:
-        print('Constructing model...')
         self.model = cp_model.CpModel()
         self.all_courses = all_courses
         self.course_id_to_index = {course_id['id']: c for c, course_id in enumerate(all_courses)}
@@ -100,48 +133,42 @@ class ScheduleGenerator:
         for constraint in constraints:
             constraint()
 
-    def solve(self) -> None:
-        print('Solving model...')
+    def solve(self, num_threads=8, verbose=False) -> Optional[tuple[Schedule, dict[Id, list[tuple[Index, Index]]]]]:
+        """
+        Solve the model to return a schedule along with a mapping from each course Id c
+        to a list of indices (b, r), indicating that course c satisfies requirement r
+        of block b in the SemesterRequirements.
+        """
         solver = cp_model.CpSolver()
-        solver.parameters.num_search_workers = 8
-        if solver.Solve(self.model) in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
-            print(f'Solution found ({solver.Value(self.num_courses_taken)} courses in {self.schedule_params.num_semesters} semesters)')
-            print()
+        solver.parameters.num_search_workers = num_threads
+        res = solver.Solve(self.model)
+        if verbose:
+            print(solver.ResponseStats())
+        if res in [cp_model.OPTIMAL, cp_model.FEASIBLE]:
+            schedule: Schedule = []
+            course_ids_to_satisfied_block_req_indices: dict[Id, list[tuple[Index, Index]]] = {}
             for s in self.semester_indices_with_precollege:
-                course_indices: list[Index] = [
+                selected_course_indices: list[Index] = [
                     c for c in self.course_indices
                     if solver.Value(self.takes_course_in_sem[c, s]) == 1
                 ]
-                course_indices_to_satisfied_block_req_indices = {
-                    c: [
+                schedule.append(
+                    [self.all_courses[c]['id'] for c in selected_course_indices]
+                )
+                course_ids_to_satisfied_block_req_indices |= {
+                    self.all_courses[c]['id']: [
                         (b, r)
                         for b in self.requirement_block_indices
                         for r in self.requirement_indices_of_block[b]
                         if solver.Value(self.satisfies[c, b, r]) == 1
                     ]
-                    for c in course_indices
+                    for c in selected_course_indices
                 }
 
-                print(f'SEMESTER {s}:')
-                print('------------------')
-
-                for c in course_indices:
-                    course_id = self.all_courses[c]['id']
-                    requirement_names = [
-                        str(self.schedule_params.requirement_blocks[b][r])
-                        for (b, r) in course_indices_to_satisfied_block_req_indices[c]
-                    ]
-                    requirement_names_str = ', '.join(requirement_names)
-                    # Indicate double-counted courses with a star
-                    maybe_star = '*' if len(requirement_names) > 1 else ''
-                    print(f'+ {maybe_star}{course_id} (satisfies {requirement_names_str})')
-                
-                print()
+            return schedule, course_ids_to_satisfied_block_req_indices
 
         else:
-            print('Not possible to generate a schedule that meets the specifications!\n')
-
-        print(solver.ResponseStats())
+            return None
 
     def create_cp_vars(self) -> None:
         """ Initialize all CP variables. """
@@ -333,9 +360,14 @@ class ScheduleGenerator:
 
     def dont_take_unnecessary_courses(self) -> None:
         """ If a course won't satisfy any requirements, don't take it. """
-        # TODO: unless we specifically requested it
         model = self.model
+        requested_ids = set(request.course_id for request in self.course_requests)
         for c in self.course_indices:
+            course_id = self.all_courses[c]['id']
+            if course_id in requested_ids:
+                # Don't add this constraint if the user requested the course
+                continue
+
             course_satisfies_something = model.NewBoolVar('')
             model.AddBoolOr([
                 self.satisfies[c, b, r] 

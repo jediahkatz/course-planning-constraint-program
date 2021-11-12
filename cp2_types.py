@@ -117,3 +117,7 @@ class ScheduleParams(NamedTuple):
     # max_double_counts[block1_index, block2_index] is the max number of courses that can double count for
     # block1 and block2, where block1_idx < block_idx. 'None' entries can double count unlimited times.
     max_double_counts: dict[tuple[Index, Index], Optional[int]]
+
+# SemesterSchedule is a list of course ids, and Schedule is a list of SemesterSchedules
+SemesterSchedule = list[Id]
+Schedule = list[SemesterSchedule]

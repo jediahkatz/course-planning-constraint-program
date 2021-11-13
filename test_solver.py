@@ -306,10 +306,108 @@ def test_prerequisites_requests_infeasible(sample_courses_info: list[CourseInfo]
     assert not generate_schedule(sample_courses_info, course_requests, params)
 
 
+def test_double_count(sample_courses_info: list[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=1,
+        max_courses_per_semester=1,
+        requirement_blocks=[
+            [Requirement(categories=['MATH@SEAS'])],
+            [Requirement(categories=['FGE@WH'])],
+        ],
+        # Can double count once
+        max_double_counts=defaultdict(lambda: 1),
+    )
+
+    assert (soln := generate_schedule(sample_courses_info, [], params))
+    schedule, counts_for = soln
+    assert len(schedule[0]) == 0
+    assert len(schedule[1]) == 1
+    course_id = schedule[1][0]
+    info = next(info for info in sample_courses_info if info['id'] == course_id)
+    req_ids = [req['id'] for req in info['requirements']]
+
+    assert 'MATH@SEAS' in req_ids
+    assert 'FGE@WH' in req_ids
+    assert counts_for[course_id] == [(0, 0), (1, 0)]
+
+
+def test_double_count_infinite_one_semester(sample_courses_info: list[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=1,
+        max_courses_per_semester=2,
+        requirement_blocks=[
+            [Requirement(courses=['CIS-120']), Requirement(courses=['CIS-160'])],
+            [Requirement(courses=['CIS-160']), Requirement(courses=['CIS-120'])],
+        ],
+        # Can double count infinite times
+        max_double_counts=defaultdict(lambda: None),
+    )
+
+    assert (soln := generate_schedule(sample_courses_info, [], params))
+    schedule, counts_for = soln
+    assert len(schedule[0]) == 0
+    assert not set(schedule[1]) ^ {'CIS-120', 'CIS-160'}
+    assert counts_for['CIS-120'] == [(0, 0), (1, 1)]
+    assert counts_for['CIS-160'] == [(0, 1), (1, 0)]
+
+
+def test_double_count_infinite_multiple_semesters(sample_courses_info: list[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        max_courses_per_semester=1,
+        requirement_blocks=[
+            [Requirement(courses=['CIS-160']), Requirement(courses=['CIS-262'])],
+            [Requirement(courses=['CIS-262']), Requirement(courses=['CIS-160'])],
+        ],
+        # Can double count infinite times
+        max_double_counts=defaultdict(lambda: None),
+    )
+
+    assert (soln := generate_schedule(sample_courses_info, [], params))
+    schedule, counts_for = soln
+    assert len(schedule[0]) == 0
+    assert schedule[1] == ['CIS-160']
+    assert schedule[2] == ['CIS-262']
+    assert counts_for['CIS-160'] == [(0, 0), (1, 1)]
+    assert counts_for['CIS-262'] == [(0, 1), (1, 0)]
+
+
+def test_no_double_count(sample_courses_info: list[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=1,
+        max_courses_per_semester=1,
+        requirement_blocks=[
+            [Requirement(categories=['MATH@SEAS'])],
+            [Requirement(categories=['FGE@WH'])],
+        ],
+        # No double counting
+        max_double_counts=defaultdict(lambda: 0),
+    )
+
+    assert not generate_schedule(sample_courses_info, [], params)
+
+
+def test_no_triple_count(sample_courses_info: list[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=1,
+        max_courses_per_semester=1,
+        requirement_blocks=[
+            [Requirement(categories=['MATH@SEAS'])],
+            [Requirement(categories=['FGE@WH'])],
+            [Requirement(categories=['MFR@SAS'])],
+        ],
+        # Infinite double counting but we can never triple count
+        max_double_counts=defaultdict(lambda: None),
+    )
+
+    assert not generate_schedule(sample_courses_info, [], params)
+
 
 # TODO: left to test
 # - multiple requirement blocks
 # - multiple requirements per block
 # - multiple requests
 # - more complex prerequisites
-# - double counting
+# - more complex double counting
+# - requirements that can be satisfied in multiple ways
+# - requirements that require both category and department to satisfy

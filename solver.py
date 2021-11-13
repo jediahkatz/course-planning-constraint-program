@@ -104,8 +104,13 @@ class ScheduleGenerator:
         )
         self.schedule_params = schedule_params
         # Clean schedule_params.max_double_counts entries that are None (i.e., no limit)
-        for (b1, b2), max_counts in schedule_params.max_double_counts.items():
-            if max_counts is None:
+        block_index_pairs = [
+            (b1, b2) 
+            for b1 in self.requirement_block_indices 
+            for b2 in range(b1 + 1, len(self.requirement_block_indices))
+        ]
+        for b1, b2 in block_index_pairs:
+            if schedule_params.max_double_counts[b1, b2] is None:
                 # If we have unlimited double counts, we can upper bound by the smaller block size
                 requirement_blocks = self.schedule_params.requirement_blocks
                 min_block_size = min(len(requirement_blocks[b1]), len(requirement_blocks[b2]))

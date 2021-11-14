@@ -23,6 +23,8 @@ easily-overlooked bugs. To take advantage of it, change your linter to `mypy` in
 This library exposes the function `fetch_course_infos() -> list[CourseInfo]`, which queries
 Penn Labs' Penn Courses API to get info for all courses in the current (upcoming) semester.
 
+(Penn Courses API documentation: https://penncourseplan.com/api/documentation/)
+
 Unfortunately, right now I don't know a better way to do this than by making an individual
 request for every course, which is slow. To speed this up, it makes the requests in parallel
 in a pool of 20 threads, and then stores the results in a file called `course_infos.txt`.
@@ -70,3 +72,6 @@ ones I have already completed.
 ### planning.txt
 Sometimes I will jot down some thoughts in this file if I need to plan out how a feature
 will work.
+
+## Penn Courses API docs
+https://penncourseplan.com/api/documentation/

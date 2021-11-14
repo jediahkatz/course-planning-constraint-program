@@ -60,6 +60,11 @@ most of the magic happens. Most of the class functions add constraints to the mo
 in `__init__` there is a list of all the constraints that will be applied in order.
 **When you add a constraint, don't forget to add it to the list!**
 
+### conftest.py
+This file contains pytest fixtures for the test cases. A fixture is basically an
+object that pytest will re-use and automatically pass along to all tests that
+accept its name as a function argument.
+
 ## DOCUMENTATION
 
 I have tried to include a good number of comments in the code. In addition, this

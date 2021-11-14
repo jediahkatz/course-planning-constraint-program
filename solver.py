@@ -26,14 +26,17 @@ def generate_schedule(
         print('Not possible to generate a schedule that meets the specifications!\n')
         return None
 
-    num_semesters = len(schedule)
+    num_semesters_without_precollege = len(schedule)-1
     num_courses_taken = sum(len(sem) for sem in schedule)
     if verbose:
-        print(f'Solution found ({num_courses_taken} courses in {num_semesters} semesters)')
+        print(f'Solution found ({num_courses_taken} courses in {num_semesters_without_precollege} semesters)')
         print()
 
         for s, semester in enumerate(schedule):
-            print(f'SEMESTER {s}:')
+            if s == 0:
+                print('PRE-COLLEGE CREDITS:')
+            else:
+                print(f'SEMESTER {s}:')
             print('------------------')
 
             for course_id in semester:
@@ -205,7 +208,7 @@ class ScheduleGenerator:
             for b in self.requirement_block_indices
             for r in self.requirement_indices_of_block[b]
         }
-        # satisfies[b, r] is true if requirements[r] for block b is satisfied
+        # is_satisfied[b, r] is true if requirements[r] for block b is satisfied
         self.is_satisfied = {
             (b, r): model.NewBoolVar('')
             for b in self.requirement_block_indices

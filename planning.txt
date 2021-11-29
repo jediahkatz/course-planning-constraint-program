@@ -30,3 +30,15 @@ that would get us everything except:
 we should directly enforce no triple counting; in fact we should enforce it globally to
 make thing nicer
 the other two we can ignore for now
+
+
+> feature: account for timeslots in the current semester (nischal)
+- make use of course time blocks
+    8:30am
+    10:15am
+    12:00pm
+    1:45pm
+    3:30pm
+    5:15pm
+    7:00pm
+    8:30pm

@@ -7,7 +7,7 @@ from fetch_data import fetch_course_infos
 from solver import generate_schedule
 
 NUM_SEMESTERS = 8
-MAX_COURSES_PER_SEMESTER = 5
+MAX_COURSES_PER_SEMESTER = 6
 
 CIS_BSE: RequirementBlock = [
     # === ENGINEERING ===
@@ -45,7 +45,9 @@ CIS_BSE: RequirementBlock = [
     *([Requirement(categories=['SS@SEAS', 'H@SEAS'])] * 4),
     *([Requirement(categories=['SS@SEAS', 'H@SEAS', 'TBS@SEAS'])] * 2),
     # # # === TODO: FREE ELECTIVE ===
-    Requirement(categories=['H@SEAS'], nickname='Free Elective'),
+    Requirement(depts=['FREE'], nickname='Free Elective'),
+    Requirement(depts=['FREE'], nickname='Free Elective'),
+    Requirement(depts=['FREE'], nickname='Free Elective'),
 ]
 SEAS_DEPTH: RequirementBlock = [
     # TODO need a way to require two from same dept...
@@ -127,10 +129,25 @@ def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[
 
 all_courses = fetch_course_infos()
 
+# add 3 free elective wild character courses (since each course can only be taken once)
+for i in range(1, 4):
+    all_courses.append({
+        "id": f'FREE-{i}',
+        "title": "Free Elective 1",
+        "semester": "2022C",
+        "prerequisites": [],
+        "course_quality": None,
+        "instructor_quality": None,
+        "difficulty": None,
+        "work_required": None,
+        "crosslistings": [],
+        "requirements": [],
+        "sections": []
+    })
+
 # optimization to make the model smaller:
 # only need to consider courses that satisfy at least one of our requirements
 # TODO: may also need courses that are prerequisites for courses that satisfy 
-# TODO: add a wildcard course that represents a free elective?
 all_courses = [
     course for course in all_courses
     if course['id'] in REQUESTED_COURSE_IDS or any(

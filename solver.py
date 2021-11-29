@@ -394,15 +394,24 @@ class ScheduleGenerator:
         # TODO: allow a mechanism for ignoring prereqs
         model = self.model
         for c, course in enumerate(self.all_courses):
-            for prereq_id in course['prerequisites']:
-                # Ignore prereqs that we don't have an entry for
-                # TODO: log this
-                if (p := self.course_id_to_index.get(prereq_id)) is not None:
-                    for s in self.semester_indices:
-                        model.AddImplication(
-                            self.takes_course_by_sem[c, s], 
-                            self.takes_course_by_sem[p, s-1]
-                        )
+            for or_prereqs in course['prerequisites']:
+                # Ignore prereqs in or_prereqs that we don't have an entry for
+                or_prereqs_indices = [
+                    self.course_id_to_index.get(prereq_id)
+                    for prereq_id in or_prereqs
+                    if self.course_id_to_index.get(prereq_id) is not None
+                ]
+                for s in self.semester_indices:
+                    or_prereqs_satisfied = model.NewBoolVar('')
+                    model.AddBoolOr([
+                        self.takes_course_by_sem[p, s-1]
+                        for p in or_prereqs_indices
+                    ]).OnlyEnforceIf(or_prereqs_satisfied)
+                    model.AddBoolAnd([
+                        self.takes_course_by_sem[p, s-1].Not()
+                        for p in or_prereqs_indices
+                    ]).OnlyEnforceIf(or_prereqs_satisfied.Not())
+                    model.AddImplication(self.takes_course_in_sem[c, s], or_prereqs_satisfied)
 
     def take_requested_courses(self) -> None:
         """ Take the courses that the student requested. """
@@ -422,7 +431,7 @@ class ScheduleGenerator:
                 )
 
     def too_many_courses_infeasible(self) -> None:
-        """ Give the model some helpful facts to recognize schedules with too many courses to be feasible. """
+        """ Give the model some helpful facts to recognize schedules with too many courses to be infeasible. """
         model = self.model
         num_semesters = self.schedule_params.num_semesters
         max_courses_per_semester = self.schedule_params.max_courses_per_semester
@@ -436,3 +445,9 @@ class ScheduleGenerator:
         model.Add(
             self.num_courses_taken >= total_num_requirements - self.num_double_counts
         )
+
+    # def balance_workload_across_semesters(self) -> None:
+    #     """ Try to balance workload across semesters in number of courses and ratio of tech to non-tech courses """
+    #     model = self.model
+    #     for s in self.semester_indices:
+             

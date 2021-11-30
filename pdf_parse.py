@@ -62,6 +62,9 @@ def write_output_txt(total_images: int, img_file_path: str):
     # Close the file after writing all the text.
     f.close()
 
+    
+    return outfile
+
 '''
 Part #3 - getting completed courses as list from transcript.txt
 '''
@@ -77,7 +80,6 @@ def get_completed_courses(filename: str):
     with open(filename, 'r', encoding='UTF-8') as f:
         for line in f:
             line_split = line.split(" ")
-            print(line_split)
 
             # check if we are at beginning of section or have a course we want to add
             # TODO: make less naive
@@ -86,11 +88,11 @@ def get_completed_courses(filename: str):
             elif line_split[0].lower() == "advanced" and line_split[1].lower() == 'placement':
                 semester_idx = 0
             else:
-                # TODO: get masterlist of all course prefixes at Penn
+                # TODO: get masterlist of all courses at Penn (right now -> only works with curr courses)
                 if len(line_split) > 2:
                     course_name = f'{line_split[0]}-{line_split[1]}'
                     for course in courses:
-                        if line_split[0] == course["id"].split("-")[0]:
+                        if course["id"] == course_name:
                             completed.append((course_name, semester_idx))
                             break
                             
@@ -98,5 +100,5 @@ def get_completed_courses(filename: str):
 
 if __name__ == "__main__":
     total_images = convert_to_images(save_to="./img/", pdf_file=PDF_FILE)
-    write_output_txt(total_images=total_images, img_file_path="./img/")
-    print(get_completed_courses("transcript.txt"))
+    outfile = write_output_txt(total_images=total_images, img_file_path="./img/")
+    print(get_completed_courses(outfile))

@@ -65,6 +65,10 @@ This file contains pytest fixtures for the test cases. A fixture is basically an
 object that pytest will re-use and automatically pass along to all tests that
 accept its name as a function argument.
 
+### pdf_parse.py
+This file contains all the logic for parsing pdf (transcripts) using OCR recognition. It 
+first converts the uploaded pdf file to a set of images 
+
 ## DOCUMENTATION
 
 I have tried to include a good number of comments in the code. In addition, this

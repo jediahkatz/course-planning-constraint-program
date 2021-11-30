@@ -3,7 +3,7 @@ from typing import Optional
 from typing_extensions import IntVar
 from ortools.sat.python import cp_model
 from cp2_types import (
-    CourseInfo, ScheduleParams, CourseRequest, Schedule, Id, Index, VarMap1D, VarMap2D, VarMap3D
+    CourseInfo, ScheduleParams, CompletedClasses, CourseRequest, Schedule, Id, Index, VarMap1D, VarMap2D, VarMap3D
 )
 
 PRECOLLEGE_SEM: Index = 0
@@ -11,13 +11,14 @@ PRECOLLEGE_SEM: Index = 0
 def generate_schedule(
     all_courses: list[CourseInfo],
     course_requests: list[CourseRequest],
+    completed_courses: list[CompletedClasses],
     schedule_params: ScheduleParams,
     verbose: bool = False,
 ) -> Optional[tuple[Schedule, dict[Id, list[tuple[Index, Index]]]]]:
     """ Attempt to generate a schedule from the inputs and print it. """
     if verbose:
         print('Constructing model...')
-    generator = ScheduleGenerator(all_courses, course_requests, schedule_params)
+    generator = ScheduleGenerator(all_courses, course_requests, completed_courses, schedule_params)
     if verbose:
         print('Solving model...')
     if (soln := generator.solve(verbose=verbose)):
@@ -91,6 +92,7 @@ class ScheduleGenerator:
         self,
         all_courses: list[CourseInfo], 
         course_requests: list[CourseRequest],
+        completed_courses: list[CompletedClasses],
         schedule_params: ScheduleParams,
     ) -> None:
         self.model = cp_model.CpModel()
@@ -102,8 +104,9 @@ class ScheduleGenerator:
             range(len(schedule_params.requirement_blocks[b])) for b in self.requirement_block_indices
         ]
         self.course_requests = course_requests
+        self.completed_courses = completed_courses
         self.precollege_credits = set(
-            request.course_id for request in course_requests if request.semester == PRECOLLEGE_SEM
+            course.course_id for course in completed_courses if course.semester == PRECOLLEGE_SEM
         )
         self.schedule_params = schedule_params
         # Clean schedule_params.max_double_counts entries that are None (i.e., no limit)
@@ -137,6 +140,7 @@ class ScheduleGenerator:
             self.take_requested_courses,
             self.dont_assign_precollege_semester,
             self.too_many_courses_infeasible,
+            self.take_completed_courses
         ]
         for constraint in constraints:
             constraint()
@@ -277,7 +281,10 @@ class ScheduleGenerator:
     def enforce_max_courses_per_semester(self) -> None:
         """ Limit the maximum number of courses per semester based on the schedule params. """
         model = self.model
-        for s in self.semester_indices:
+
+        max_sem = max([course.semester for course in self.completed_courses])
+
+        for s in range(max_sem + 1, len(self.semester_indices)):
             model.Add(
                 sum(self.takes_course_in_sem[c, s] for c in self.course_indices)
                 <= 
@@ -436,3 +443,20 @@ class ScheduleGenerator:
         model.Add(
             self.num_courses_taken >= total_num_requirements - self.num_double_counts
         )
+    
+    def take_completed_courses(self) -> None:
+        """ Take the courses that the student has already completed. """
+        model = self.model
+        for course_id, sem in self.completed_courses:
+            model.Add(
+                self.takes_course_in_sem[self.course_id_to_index[course_id], sem] == 1
+            )
+        
+        # disallow taking courses in semesters that have already gone by
+        max_sem = max([course.semester for course in self.completed_courses])
+        for sem in range(1, max_sem + 1):
+            for c in self.course_indices:
+                model.Add(
+                    self.takes_course_in_sem[c, sem] == 0
+                )
+

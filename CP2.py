@@ -2,9 +2,11 @@
 # Later can expand to 4yr plan
 
 from typing import Optional
-from cp2_types import CourseRequest, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
+
+from cp2_types import CourseRequest, CompletedClasses, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
 from fetch_data import fetch_course_infos
 from solver import generate_schedule
+from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
 
 NUM_SEMESTERS = 8
 MAX_COURSES_PER_SEMESTER = 5
@@ -102,19 +104,37 @@ MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
 }
 
 COURSE_REQUESTS: list[CourseRequest] = [
-    CourseRequest('CIS-110', 0),
-    CourseRequest('MATH-104', 0),
-    CourseRequest('BIOL-101', 0),
-    CourseRequest('CIS-160', 1),
-    CourseRequest('CIS-120', 1),
-    CourseRequest('MATH-114', 1),
-    CourseRequest('CIS-121', 2),
-    CourseRequest('CIS-320', 4),
-    CourseRequest('CIS-400', 7),
-    CourseRequest('CIS-401', 8),
+    # CourseRequest('CIS-110', 1),
+    # CourseRequest('CIS-160', 1),
+    # CourseRequest('ECON-001', 1),
+    # CourseRequest('MATH-114', 1),
+    # CourseRequest('WRIT-013', 1),
+    # CourseRequest('CIS-120', 2),
+    # CourseRequest('CIS-192', 2),
+    # CourseRequest('MATH-240', 2),
+    # CourseRequest('MGMT-267', 2),
+    # CourseRequest('MKTG-101', 2),
+    # CourseRequest('STAT-430', 2)
 ]
 REQUESTED_COURSE_IDS = set(
     course_id for course_id, _ in COURSE_REQUESTS
+)
+
+# parse pdf to get completed courses
+SAVE_TO = "./img/"
+PDF_FILE = "Akshit_Sharma_Transcript.pdf"
+
+total_images = convert_to_images(save_to=SAVE_TO, pdf_file=PDF_FILE)
+outfile = write_output_txt(total_images=total_images, img_file_path=SAVE_TO)
+completed_courses = get_completed_courses(outfile)
+
+COMPLETED: list[CompletedClasses] = [
+    CompletedClasses(element[0], element[1]) for element in completed_courses 
+]
+print(COMPLETED)
+
+COMPLETED_COURSE_IDS = set(
+    course_id for course_id, _ in COMPLETED
 )
 
 def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[Requirement]) -> None:
@@ -133,7 +153,7 @@ all_courses = fetch_course_infos()
 # TODO: add a wildcard course that represents a free elective?
 all_courses = [
     course for course in all_courses
-    if course['id'] in REQUESTED_COURSE_IDS or any(
+    if course['id'] in COMPLETED_COURSE_IDS or any(
         req.satisfied_by_course(course)
         for major in ALL_REQUIREMENT_BLOCKS
         for req in major
@@ -148,4 +168,4 @@ params = ScheduleParams(
     ALL_REQUIREMENT_BLOCKS,
     MAX_DOUBLE_COUNTING
 )
-generate_schedule(all_courses, COURSE_REQUESTS, params, verbose=True)
+generate_schedule(all_courses, COURSE_REQUESTS, COMPLETED, params, verbose=True)

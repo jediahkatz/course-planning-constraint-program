@@ -11,6 +11,10 @@ class CourseRequest(NamedTuple):
     course_id: Id
     semester: Index
 
+class CompletedClasses(NamedTuple):
+    course_id : Id
+    semester: Index
+
 class ReqCategoryInfo(TypedDict):
     id: Id
     code: str

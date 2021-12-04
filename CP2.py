@@ -9,7 +9,8 @@ from solver import generate_schedule
 from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
 
 NUM_SEMESTERS = 8
-MAX_COURSES_PER_SEMESTER = 7
+MAX_COURSES_PER_SEMESTER = 6
+MIN_COURSES_PER_SEMESTER = 4
 
 CIS_BSE: RequirementBlock = [
     # === ENGINEERING ===
@@ -164,6 +165,7 @@ raise_for_missing_courses(all_courses, [req for major in ALL_REQUIREMENT_BLOCKS 
 params = ScheduleParams(
     NUM_SEMESTERS,
     MAX_COURSES_PER_SEMESTER,
+    MIN_COURSES_PER_SEMESTER,
     ALL_REQUIREMENT_BLOCKS,
     MAX_DOUBLE_COUNTING
 )

@@ -140,7 +140,8 @@ class ScheduleGenerator:
             # self.take_requested_courses,
             self.dont_assign_precollege_semester,
             # self.too_many_courses_infeasible,
-            self.take_completed_courses
+            self.take_completed_courses,
+            self.take_min_amount_of_courses_per_semester
         ]
         for constraint in constraints:
             constraint()
@@ -469,4 +470,17 @@ class ScheduleGenerator:
                     model.Add(
                         self.takes_course_in_sem[c, sem] == 0
                     )
+        
+    def take_min_amount_of_courses_per_semester(self) -> None:
+        model = self.model
+
+        max_sem = max([course.semester for course in self.completed_courses])
+
+        for s in range(max_sem + 1, len(self.semester_indices) + 1):
+            model.Add(
+                sum(self.takes_course_in_sem[c, s] for c in self.course_indices)
+                >=
+                self.schedule_params.min_courses_per_semester
+            )
+
 

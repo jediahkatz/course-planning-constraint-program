@@ -117,6 +117,7 @@ RequirementBlock = list[Requirement]
 class ScheduleParams(NamedTuple):
     num_semesters: int
     max_courses_per_semester: int
+    min_courses_per_semester: int
     requirement_blocks: list[RequirementBlock]
     # max_double_counts[block1_index, block2_index] is the max number of courses that can double count for
     # block1 and block2, where block1_idx < block_idx. 'None' entries can double count unlimited times.

@@ -137,7 +137,7 @@ class ScheduleGenerator:
             self.no_double_counting_within_requirement_blocks,
             self.dont_take_unnecessary_courses,
             self.enforce_prerequisites,
-            # self.take_requested_courses,
+            self.take_requested_courses,
             self.dont_assign_precollege_semester,
             # self.too_many_courses_infeasible,
             self.take_completed_courses,
@@ -416,7 +416,18 @@ class ScheduleGenerator:
     def take_requested_courses(self) -> None:
         """ Take the courses that the student requested. """
         model = self.model
+
+        max_sem = max([course.semester for course in self.completed_courses])
+        completed_ids = set(course.course_id for course in self.completed_courses)
+
         for course_id, sem in self.course_requests:
+            # skip courses already taken/semesters already taken
+            if sem <= max_sem:
+                continue
+            
+            if course_id in completed_ids:
+                continue
+
             model.Add(
                 self.takes_course_in_sem[self.course_id_to_index[course_id], sem] == 1
             )

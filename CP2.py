@@ -106,16 +106,16 @@ MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
 
 
 COURSE_REQUESTS: list[CourseRequest] = [
-    # CourseRequest('CIS-110', 0),
-    # CourseRequest('MATH-104', 0),
-    # CourseRequest('BIOL-101', 0),
-    # CourseRequest('CIS-160', 1),
-    # CourseRequest('CIS-120', 1),
-    # CourseRequest('MATH-114', 1),
-    # CourseRequest('CIS-121', 2),
-    # CourseRequest('CIS-320', 4),
-    # CourseRequest('CIS-400', 7),
-    # CourseRequest('CIS-401', 8),
+    CourseRequest('CIS-110', 0),
+    CourseRequest('MATH-104', 0),
+    CourseRequest('BIOL-101', 0),
+    CourseRequest('CIS-160', 1),
+    CourseRequest('CIS-120', 1),
+    CourseRequest('MATH-114', 1),
+    CourseRequest('CIS-121', 2),
+    CourseRequest('CIS-320', 4),
+    CourseRequest('CIS-400', 7),
+    CourseRequest('CIS-401', 8),
 ]
 REQUESTED_COURSE_IDS = set(
     course_id for course_id, _ in COURSE_REQUESTS
@@ -147,13 +147,15 @@ def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[
 
 all_courses = fetch_course_infos()
 
+REQUESTED_AND_COMPLETED_IDS = COMPLETED_COURSE_IDS.union(REQUESTED_COURSE_IDS)
+
 # optimization to make the model smaller:
 # only need to consider courses that satisfy at least one of our requirements
 # TODO: may also need courses that are prerequisites for courses that satisfy 
 # TODO: add a wildcard course that represents a free elective?
 all_courses = [
     course for course in all_courses
-    if course['id'] in COMPLETED_COURSE_IDS or any(
+    if course['id'] in REQUESTED_AND_COMPLETED_IDS or any(
         req.satisfied_by_course(course)
         for major in ALL_REQUIREMENT_BLOCKS
         for req in major

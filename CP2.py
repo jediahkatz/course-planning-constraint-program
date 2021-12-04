@@ -9,7 +9,7 @@ from solver import generate_schedule
 from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
 
 NUM_SEMESTERS = 8
-MAX_COURSES_PER_SEMESTER = 5
+MAX_COURSES_PER_SEMESTER = 7
 
 CIS_BSE: RequirementBlock = [
     # === ENGINEERING ===
@@ -103,18 +103,18 @@ MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
     (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0
 }
 
+
 COURSE_REQUESTS: list[CourseRequest] = [
-    # CourseRequest('CIS-110', 1),
+    # CourseRequest('CIS-110', 0),
+    # CourseRequest('MATH-104', 0),
+    # CourseRequest('BIOL-101', 0),
     # CourseRequest('CIS-160', 1),
-    # CourseRequest('ECON-001', 1),
+    # CourseRequest('CIS-120', 1),
     # CourseRequest('MATH-114', 1),
-    # CourseRequest('WRIT-013', 1),
-    # CourseRequest('CIS-120', 2),
-    # CourseRequest('CIS-192', 2),
-    # CourseRequest('MATH-240', 2),
-    # CourseRequest('MGMT-267', 2),
-    # CourseRequest('MKTG-101', 2),
-    # CourseRequest('STAT-430', 2)
+    # CourseRequest('CIS-121', 2),
+    # CourseRequest('CIS-320', 4),
+    # CourseRequest('CIS-400', 7),
+    # CourseRequest('CIS-401', 8),
 ]
 REQUESTED_COURSE_IDS = set(
     course_id for course_id, _ in COURSE_REQUESTS
@@ -131,7 +131,6 @@ completed_courses = get_completed_courses(outfile)
 COMPLETED: list[CompletedClasses] = [
     CompletedClasses(element[0], element[1]) for element in completed_courses 
 ]
-print(COMPLETED)
 
 COMPLETED_COURSE_IDS = set(
     course_id for course_id, _ in COMPLETED

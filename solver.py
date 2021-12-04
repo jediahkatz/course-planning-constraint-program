@@ -137,9 +137,9 @@ class ScheduleGenerator:
             self.no_double_counting_within_requirement_blocks,
             self.dont_take_unnecessary_courses,
             self.enforce_prerequisites,
-            self.take_requested_courses,
+            # self.take_requested_courses,
             self.dont_assign_precollege_semester,
-            self.too_many_courses_infeasible,
+            # self.too_many_courses_infeasible,
             self.take_completed_courses
         ]
         for constraint in constraints:
@@ -284,7 +284,7 @@ class ScheduleGenerator:
 
         max_sem = max([course.semester for course in self.completed_courses])
 
-        for s in range(max_sem + 1, len(self.semester_indices)):
+        for s in range(max_sem + 1, len(self.semester_indices) + 1):
             model.Add(
                 sum(self.takes_course_in_sem[c, s] for c in self.course_indices)
                 <= 
@@ -367,7 +367,8 @@ class ScheduleGenerator:
     def no_double_counting_within_requirement_blocks(self) -> None:
         """ A course can only count once within a single block of requirements. """
         model = self.model
-        for c in self.course_indices:
+        
+        for c in self.course_indices:           
             for b in self.requirement_block_indices:
                 model.Add(
                     sum(self.satisfies[c, b, r] for r in self.requirement_indices_of_block[b]) <= 1
@@ -376,11 +377,11 @@ class ScheduleGenerator:
     def dont_take_unnecessary_courses(self) -> None:
         """ If a course won't satisfy any requirements, don't take it. """
         model = self.model
-        requested_ids = set(request.course_id for request in self.course_requests)
+        taken_courses = set(course.course_id for course in self.completed_courses)
         for c in self.course_indices:
             course_id = self.all_courses[c]['id']
-            if course_id in requested_ids:
-                # Don't add this constraint if the user requested the course
+            if course_id in taken_courses:
+                # Don't add this constraint if the user has already taken the course
                 continue
 
             course_satisfies_something = model.NewBoolVar('')
@@ -451,12 +452,21 @@ class ScheduleGenerator:
             model.Add(
                 self.takes_course_in_sem[self.course_id_to_index[course_id], sem] == 1
             )
-        
-        # disallow taking courses in semesters that have already gone by
+
+        # disallow taking any other courses in semesters that have already gone by
         max_sem = max([course.semester for course in self.completed_courses])
         for sem in range(1, max_sem + 1):
             for c in self.course_indices:
-                model.Add(
-                    self.takes_course_in_sem[c, sem] == 0
-                )
+
+                # skip existing courses
+                add_constraint = True
+                course_id = self.all_courses[c]['id']
+                for course in self.completed_courses:
+                    if course_id == course.course_id and course.semester == sem:
+                        add_constraint = False
+                
+                if add_constraint:
+                    model.Add(
+                        self.takes_course_in_sem[c, sem] == 0
+                    )
 

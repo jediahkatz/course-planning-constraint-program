@@ -518,7 +518,7 @@ class ScheduleGenerator:
             )
     
     def minimize_maximum_difficulty(self) -> None:
-        """ main optimizer: based on creating a balanced academic load """
+        """ Main optimizer: based on creating a balanced academic load """
         model = self.model
 
         # get upper bound for maximum difficulty
@@ -539,10 +539,10 @@ class ScheduleGenerator:
         model.Minimize(self.max_difficulty)
         
     def dont_take_cross_listed_twice(self) -> None:
-         """enforce cross-listing across courses"""
-         model = self.model
+        """ Enforce cross-listing across courses """
+        model = self.model
 
-         for c, course in enumerate(self.all_courses):
+        for c, course in enumerate(self.all_courses):
             crosslistings = course["crosslistings"]
 
             # get all crosslisted courses indices
@@ -554,12 +554,10 @@ class ScheduleGenerator:
 
             for cross_listed_course in cross_listing_indices:
                 model.AddImplication(
-                    self.takes_course_by_sem[c, len(self.semester_indices)], 
-                    self.takes_course_by_sem[cross_listed_course, len(self.semester_indices)].Not())
+                    self.takes_course[c], 
+                    self.takes_course[cross_listed_course].Not())
 
-            # for s in self.semester_indices:
-            #     for cross_listed_course in cross_listing_indices:
-            #         model.AddImplication(self.takes_course_in_sem[c, s], self.takes_course_by_sem[cross_listed_course, s].Not())
+    
 
             
                  

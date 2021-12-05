@@ -2,4 +2,6 @@
 node_modules/
 __pycache__/
 *.js
-*.json
+*.pdf
+img/
+transcript.txt

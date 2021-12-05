@@ -65,6 +65,13 @@ This file contains pytest fixtures for the test cases. A fixture is basically an
 object that pytest will re-use and automatically pass along to all tests that
 accept its name as a function argument.
 
+### pdf_parse.py
+This file contains all the logic for parsing pdf (transcripts) using OCR recognition. It 
+first converts the uploaded pdf file to a set of images and then outputs the course info to a txt
+file called "transcript.txt". It uses this txt file to assemble a list of courses that have already been completed and the semesters they were completed in.
+
+NOTE: this file runs into certain edge cases in terms of parsing the transcript, so certain courses might be missed. In particular, there may be courses that get missed if their description is far too large, or that don't fit the transcript file's pattern easily. 
+
 ## DOCUMENTATION
 
 I have tried to include a good number of comments in the code. In addition, this

@@ -3,7 +3,7 @@ from typing import Optional
 from typing_extensions import IntVar
 from ortools.sat.python import cp_model
 from cp2_types import (
-    CourseInfo, ScheduleParams, CourseRequest, Schedule, Id, Index, VarMap1D, VarMap2D, VarMap3D
+    CourseInfo, ScheduleParams, CompletedClasses, CourseRequest, Schedule, Id, Index, VarMap1D, VarMap2D, VarMap3D
 )
 
 PRECOLLEGE_SEM: Index = 0
@@ -11,13 +11,14 @@ PRECOLLEGE_SEM: Index = 0
 def generate_schedule(
     all_courses: list[CourseInfo],
     course_requests: list[CourseRequest],
+    completed_courses: list[CompletedClasses],
     schedule_params: ScheduleParams,
     verbose: bool = False,
 ) -> Optional[tuple[Schedule, dict[Id, list[tuple[Index, Index]]]]]:
     """ Attempt to generate a schedule from the inputs and print it. """
     if verbose:
         print('Constructing model...')
-    generator = ScheduleGenerator(all_courses, course_requests, schedule_params)
+    generator = ScheduleGenerator(all_courses, course_requests, completed_courses, schedule_params)
     if verbose:
         print('Solving model...')
     if (soln := generator.solve(verbose=verbose)):
@@ -81,6 +82,8 @@ class ScheduleGenerator:
     model: cp_model.CpModel
     num_double_counts: cp_model.IntVar
     num_courses_taken: cp_model.IntVar
+    max_difficulty: cp_model.IntVar
+    list_difficulties: list[cp_model.IntVar]
     takes_course: VarMap1D
     takes_course_in_sem: VarMap2D
     takes_course_by_sem: VarMap2D
@@ -91,6 +94,7 @@ class ScheduleGenerator:
         self,
         all_courses: list[CourseInfo], 
         course_requests: list[CourseRequest],
+        completed_courses: list[CompletedClasses],
         schedule_params: ScheduleParams,
     ) -> None:
         self.model = cp_model.CpModel()
@@ -102,8 +106,9 @@ class ScheduleGenerator:
             range(len(schedule_params.requirement_blocks[b])) for b in self.requirement_block_indices
         ]
         self.course_requests = course_requests
+        self.completed_courses = completed_courses
         self.precollege_credits = set(
-            request.course_id for request in course_requests if request.semester == PRECOLLEGE_SEM
+            course.course_id for course in completed_courses if course.semester == PRECOLLEGE_SEM
         )
         self.schedule_params = schedule_params
         # Clean schedule_params.max_double_counts entries that are None (i.e., no limit)
@@ -137,6 +142,9 @@ class ScheduleGenerator:
             self.take_requested_courses,
             self.dont_assign_precollege_semester,
             self.too_many_courses_infeasible,
+            self.take_completed_courses,
+            self.take_min_amount_of_courses_per_semester,
+            self.minimize_maximum_difficulty
         ]
         for constraint in constraints:
             constraint()
@@ -277,7 +285,10 @@ class ScheduleGenerator:
     def enforce_max_courses_per_semester(self) -> None:
         """ Limit the maximum number of courses per semester based on the schedule params. """
         model = self.model
-        for s in self.semester_indices:
+
+        max_sem = max([course.semester for course in self.completed_courses], default=0)
+
+        for s in range(max_sem + 1, len(self.semester_indices) + 1):
             model.Add(
                 sum(self.takes_course_in_sem[c, s] for c in self.course_indices)
                 <= 
@@ -360,7 +371,8 @@ class ScheduleGenerator:
     def no_double_counting_within_requirement_blocks(self) -> None:
         """ A course can only count once within a single block of requirements. """
         model = self.model
-        for c in self.course_indices:
+        
+        for c in self.course_indices:           
             for b in self.requirement_block_indices:
                 model.Add(
                     sum(self.satisfies[c, b, r] for r in self.requirement_indices_of_block[b]) <= 1
@@ -369,11 +381,16 @@ class ScheduleGenerator:
     def dont_take_unnecessary_courses(self) -> None:
         """ If a course won't satisfy any requirements, don't take it. """
         model = self.model
-        requested_ids = set(request.course_id for request in self.course_requests)
+        taken_courses = set(course.course_id for course in self.completed_courses)
+        requested_courses = set(course.course_id for course in self.course_requests)
         for c in self.course_indices:
             course_id = self.all_courses[c]['id']
-            if course_id in requested_ids:
-                # Don't add this constraint if the user requested the course
+            if course_id in taken_courses:
+                # Don't add this constraint if the user has already taken the course
+                continue
+
+            if course_id in requested_courses:
+                # Don't add this constraint if the user has requested this course
                 continue
 
             course_satisfies_something = model.NewBoolVar('')
@@ -416,7 +433,22 @@ class ScheduleGenerator:
     def take_requested_courses(self) -> None:
         """ Take the courses that the student requested. """
         model = self.model
+
+        max_sem = max([course.semester for course in self.completed_courses], default=-1)
+        completed_ids = set(course.course_id for course in self.completed_courses)
+
         for course_id, sem in self.course_requests:
+            # skip courses already taken/semesters already taken
+            if sem <= max_sem:
+                continue
+            
+            if course_id in completed_ids:
+                continue
+
+            # skip precollege credits
+            if sem == 0:
+                continue
+
             model.Add(
                 self.takes_course_in_sem[self.course_id_to_index[course_id], sem] == 1
             )
@@ -445,9 +477,63 @@ class ScheduleGenerator:
         model.Add(
             self.num_courses_taken >= total_num_requirements - self.num_double_counts
         )
+    
+    def take_completed_courses(self) -> None:
+        """ Take the courses that the student has already completed. """
+        model = self.model
+        for course_id, sem in self.completed_courses:
+            model.Add(
+                self.takes_course_in_sem[self.course_id_to_index[course_id], sem] == 1
+            )
 
-    # def balance_workload_across_semesters(self) -> None:
-    #     """ Try to balance workload across semesters in number of courses and ratio of tech to non-tech courses """
-    #     model = self.model
-    #     for s in self.semester_indices:
-             
+        # disallow taking any other courses in semesters that have already gone by
+        max_sem = max([course.semester for course in self.completed_courses], default=0)
+        for sem in range(1, max_sem + 1):
+            for c in self.course_indices:
+
+                # skip existing courses
+                add_constraint = True
+                course_id = self.all_courses[c]['id']
+                for course in self.completed_courses:
+                    if course_id == course.course_id and course.semester == sem:
+                        add_constraint = False
+                
+                if add_constraint:
+                    model.Add(
+                        self.takes_course_in_sem[c, sem] == 0
+                    )
+        
+    def take_min_amount_of_courses_per_semester(self) -> None:
+        """ Take a baseline amount of courses per sem """
+        model = self.model
+
+        max_sem = max([course.semester for course in self.completed_courses], default=0)
+
+        for s in range(max_sem + 1, len(self.semester_indices) + 1):
+            model.Add(
+                sum(self.takes_course_in_sem[c, s] for c in self.course_indices)
+                >=
+                self.schedule_params.min_courses_per_semester
+            )
+    
+    def minimize_maximum_difficulty(self) -> None:
+        """ main optimizer: based on creating a balanced academic load """
+        model = self.model
+
+        # get upper bound for maximum difficulty
+        upper_bound = 4 * self.schedule_params.max_courses_per_semester * self.schedule_params.num_semesters
+        self.max_difficulty = model.NewIntVar(0, upper_bound, '')
+
+        # only iterate for semesters left
+        max_sem = max([course.semester for course in self.completed_courses], default=0)
+        self.list_difficulties = [model.NewIntVar(0, 4 * self.schedule_params.max_courses_per_semester, '') for _ in range(len(self.semester_indices))]
+
+        for s in range(max_sem + 1, len(self.semester_indices) + 1):
+            model.Add(
+                self.list_difficulties[s - 1] == sum(round(self.all_courses[c]["difficulty"] if self.all_courses[c]["difficulty"] else 0) * self.takes_course_in_sem[c, s] for c in self.course_indices)
+            )
+        
+        # minimize maximum difficulty across semesters
+        model.AddMaxEquality(self.max_difficulty, self.list_difficulties)
+        model.Minimize(self.max_difficulty)
+        

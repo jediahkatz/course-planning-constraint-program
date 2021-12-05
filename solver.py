@@ -495,6 +495,7 @@ class ScheduleGenerator:
                     )
         
     def take_min_amount_of_courses_per_semester(self) -> None:
+        """ Take a baseline amount of courses per sem """
         model = self.model
 
         max_sem = max([course.semester for course in self.completed_courses], default=0)
@@ -507,6 +508,7 @@ class ScheduleGenerator:
             )
     
     def minimize_maximum_difficulty(self) -> None:
+        """ main optimizer: based on creating a balanced academic load """
         model = self.model
 
         # get upper bound for maximum difficulty

@@ -132,13 +132,9 @@ COMPLETED: list[CompletedClasses] = [
     CompletedClasses(element[0], element[1]) for element in completed_courses 
 ]
 
-# COMPLETED: list[CompletedClasses] = []
-
 COMPLETED_COURSE_IDS = set(
     course_id for course_id, _ in COMPLETED
 )
-
-# COMPLETED_COURSE_IDS = set()
 
 def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[Requirement]) -> None:
     courses_from_reqs = set(

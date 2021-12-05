@@ -144,7 +144,8 @@ class ScheduleGenerator:
             self.too_many_courses_infeasible,
             self.take_completed_courses,
             self.take_min_amount_of_courses_per_semester,
-            self.minimize_maximum_difficulty
+            self.minimize_maximum_difficulty,
+            self.dont_take_cross_listed_twice
         ]
         for constraint in constraints:
             constraint()
@@ -537,3 +538,29 @@ class ScheduleGenerator:
         model.AddMaxEquality(self.max_difficulty, self.list_difficulties)
         model.Minimize(self.max_difficulty)
         
+    def dont_take_cross_listed_twice(self) -> None:
+         """enforce cross-listing across courses"""
+         model = self.model
+
+         for c, course in enumerate(self.all_courses):
+            crosslistings = course["crosslistings"]
+
+            # get all crosslisted courses indices
+            cross_listing_indices = [
+                self.course_id_to_index.get(crosslisting)
+                for crosslisting in crosslistings
+                if self.course_id_to_index.get(crosslisting) is not None
+            ]
+
+            for cross_listed_course in cross_listing_indices:
+                model.AddImplication(
+                    self.takes_course_by_sem[c, len(self.semester_indices)], 
+                    self.takes_course_by_sem[cross_listed_course, len(self.semester_indices)].Not())
+
+            # for s in self.semester_indices:
+            #     for cross_listed_course in cross_listing_indices:
+            #         model.AddImplication(self.takes_course_in_sem[c, s], self.takes_course_by_sem[cross_listed_course, s].Not())
+
+            
+                 
+

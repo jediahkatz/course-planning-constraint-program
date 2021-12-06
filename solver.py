@@ -411,7 +411,10 @@ class ScheduleGenerator:
         """ If we have taken some course by sem s, we must have taken its prereqs by sem s-1. """
         # TODO: allow a mechanism for ignoring prereqs
         model = self.model
+        taken_courses = set(course.course_id for course in self.completed_courses)
         for c, course in enumerate(self.all_courses):
+            if course['id'] in taken_courses:
+                continue
             for or_prereqs in course['prerequisites']:
                 # Ignore prereqs in or_prereqs that we don't have an entry for
                 or_prereqs_indices = [
@@ -554,8 +557,8 @@ class ScheduleGenerator:
 
             for cross_listed_course in cross_listing_indices:
                 model.AddImplication(
-                    self.takes_course_by_sem[c, len(self.semester_indices)], 
-                    self.takes_course_by_sem[cross_listed_course, len(self.semester_indices)].Not())
+                    self.takes_course[c], 
+                    self.takes_course[cross_listed_course])
 
             # for s in self.semester_indices:
             #     for cross_listed_course in cross_listing_indices:

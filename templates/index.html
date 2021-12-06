@@ -168,7 +168,7 @@
                 location.reload(true);
             }
 
-            requested_courses = [];
+            let requested_courses = [];
 
             $(document).ready(function () {
                 get_courses();
@@ -232,19 +232,18 @@
             });
 
             var removeCourse = function (e) {
-                var course = $(e)
+                var course_string = $(e)
                     .parent()
                     .parent()
                     .find("div:first-child")
                     .text();
-                var semester = $(e)
-                    .parent()
-                    .parent()
-                    .find("div:last-child")
-                    .text();
-                requested_courses = requested_courses.filter(
-                    (course_obj) => course_obj.course != course
-                );
+                var course = course_string.split(" ")[0];
+                for (var i = 0; i < requested_courses.length; i++) {
+                    if (requested_courses[i].course === course) {
+                        requested_courses.splice(i, 1);
+                        break;
+                    }
+                }
                 $(e).parent().parent().remove();
             };
         </script>

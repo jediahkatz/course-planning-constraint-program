@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <title>PennSchedulePlanner</title>
+        <meta
+            name="description"
+            content="Create a schedule for Penn CIS track"
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link
+            rel="stylesheet"
+            href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+            crossorigin="anonymous"
+        />
+        <link
+            rel="stylesheet"
+            href="https://fonts.googleapis.com/css?family=Poppins:300,400,400i,700"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.6/css/selectize.bootstrap3.min.css"
+            integrity="sha256-ze/OEYGcFbPRmvCnrSeKbRTtjG4vGLHXgOqsyLFTRjg="
+            crossorigin="anonymous"
+        />
+        <link rel="stylesheet" href="../static/css/index.css" />
+    </head>
+
+    <body>
+        <header>
+            <nav
+                class="navbar navbar-expand-lg shadow navbar-light bg-light"
+                id="navbar"
+            >
+                <a href="/" class="navbar-brand logotext"
+                    >PennSchedulePlanner</a
+                >
+            </nav>
+        </header>
+        <div class="container pt-3"></div>
+
+        <div class="container" id="form-block">
+            <form autocomplete="off" action="javascript:calculateChances()">
+                <div class="row">
+                    <div class="col">
+                        <h5 class="mb-3">Upload transcript</h5>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        Print the transcript page on PennInTouch as pdf and
+                        upload it here.
+                    </div>
+                </div>
+                <div class="row" style="padding-top: 0.5rem">
+                    <div class="col col-md-3">
+                        <input
+                            type="file"
+                            class="form-control"
+                            id="upload-transcript"
+                            onclick=""
+                            value="Browse for transcript"
+                        />
+                    </div>
+                    <div class="col col-md-3" style="text-align: center">
+                        <h5>OR</h5>
+                    </div>
+                    <div class="col col-md-3">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            onchange="document.getElementById('upload-transcript').disabled = this.checked;"
+                            id="proceed_wo_transcript"
+                        />
+                        <label class="form-check-label" for="flexCheckDefault">
+                            Proceed without uploading
+                        </label>
+                    </div>
+                </div>
+
+                <hr style="margin-top: 2rem" />
+
+                <div class="row">
+                    <div class="col">
+                        <h5 class="mb-3">Request Courses</h5>
+                    </div>
+                </div>
+                <div class="row" id="select-course-block">
+                    <div class="col-md-4">
+                        <label for="select-course"
+                            >Select courses to request:</label
+                        >
+                        <select
+                            name="select-course"
+                            id="select-course"
+                            class="selectpicker form-control autofill-select"
+                        ></select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="semester">Select Semester</label>
+                        <select
+                            class="form-control"
+                            name="semester"
+                            id="semester"
+                            class="selectpicker form-control autofill-select"
+                        >
+                            <option
+                                value=""
+                                selected="true"
+                                disabled="disabled"
+                            >
+                                -
+                            </option>
+                            <option value="0">0</option>
+                            <option value="1">1</option>
+                            <option value="2">2</option>
+                            <option value="3">3</option>
+                            <option value="4">4</option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3">
+                        <input
+                            type="button"
+                            class="form-control"
+                            name="add-course"
+                            id="add-course"
+                            onclick="addCourse()"
+                            value="Add Course"
+                        />
+                    </div>
+                </div>
+                <br />
+                <div class="row">
+                    <div
+                        class="jumbotron col-md-8 jumbo"
+                        id="courseListContainer"
+                    >
+                        <h6>Reqeusted Courses</h6>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3">
+                        <input
+                            type="submit"
+                            class="form-control"
+                            value="Show Me My Schedule"
+                        />
+                    </div>
+                </div>
+                <hr />
+            </form>
+        </div>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.6/js/standalone/selectize.min.js"
+            integrity="sha256-+C0A5Ilqmu4QcSPxrlGpaZxJ04VjsRjKu+G82kl5UJk="
+            crossorigin="anonymous"
+        ></script>
+        <script src="../static/js/index.js"></script>
+        <script>
+            if (performance.navigation.type == 2) {
+                location.reload(true);
+            }
+
+            requested_courses = [];
+
+            $(document).ready(function () {
+                get_courses();
+            });
+
+            var get_courses = function () {
+                $.get("/all-courses")
+                    .done(function (resp) {
+                        if (resp) {
+                            courses = resp;
+                            course_options =
+                                "<option value=''>Select Course</option>";
+                            for (var i = 0; i < courses.length; i++) {
+                                console.log(courses[i]);
+                                course_options +=
+                                    "<option value='" +
+                                    courses[i] +
+                                    "'>" +
+                                    courses[i] +
+                                    "</option>";
+                            }
+                            $("#select-course").html(course_options);
+                            $(".autofill-select").selectize({});
+                        } else {
+                            alert(resp);
+                        }
+                    })
+                    .fail(function (resp) {
+                        alert(resp);
+                    });
+            };
+
+            $("#add-course").click(function () {
+                var course = $("#select-course").val();
+                var semester = $("#semester").val();
+                if (course && semester) {
+                    if (requested_courses.indexOf(course) == -1) {
+                        requested_courses.push(course);
+                        $("#courseListContainer").append(
+                            "<div class='row'><div class='col-md-6'>" +
+                                course +
+                                " (semester: " +
+                                semester +
+                                ")" +
+                                "</div><div class='col-md-6'><input type='button' class='form-control' value='Remove' onclick='removeCourse(this)'></div></div>"
+                        );
+                    }
+                }
+                $("#select-course")[0].selectize.clear();
+                $("#semester").val("");
+            });
+
+            $("#remove-course").click(function () {
+                var course = $(this).val();
+                var index = requested_courses.indexOf(course);
+                requested_courses.splice(index, 1);
+                $("#courseListContainer").children().last().remove();
+            });
+        </script>
+    </body>
+</html>

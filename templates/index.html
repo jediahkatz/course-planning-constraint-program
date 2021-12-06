@@ -112,15 +112,15 @@
                             >
                                 -
                             </option>
-                            <option value="0">0</option>
-                            <option value="1">1</option>
-                            <option value="2">2</option>
-                            <option value="3">3</option>
-                            <option value="4">4</option>
-                            <option value="5">5</option>
-                            <option value="6">6</option>
-                            <option value="7">7</option>
-                            <option value="8">8</option>
+                            <option value="0">Pre-college Credits</option>
+                            <option value="1">Freshman Fall</option>
+                            <option value="2">Freshman Spring</option>
+                            <option value="3">Sophomore Fall</option>
+                            <option value="4">Sophomore Spring</option>
+                            <option value="5">Junior Fall</option>
+                            <option value="6">Junior Spring</option>
+                            <option value="7">Senior Fall</option>
+                            <option value="8">Senior Spring</option>
                         </select>
                     </div>
                 </div>
@@ -131,7 +131,6 @@
                             class="form-control"
                             name="add-course"
                             id="add-course"
-                            onclick="addCourse()"
                             value="Add Course"
                         />
                     </div>
@@ -183,7 +182,6 @@
                             course_options =
                                 "<option value=''>Select Course</option>";
                             for (var i = 0; i < courses.length; i++) {
-                                console.log(courses[i]);
                                 course_options +=
                                     "<option value='" +
                                     courses[i] +
@@ -206,8 +204,19 @@
                 var course = $("#select-course").val();
                 var semester = $("#semester").val();
                 if (course && semester) {
-                    if (requested_courses.indexOf(course) == -1) {
-                        requested_courses.push(course);
+                    // check if course is already in the course and semester list
+                    var course_in_list = false;
+                    for (var i = 0; i < requested_courses.length; i++) {
+                        if (requested_courses[i].course == course) {
+                            course_in_list = true;
+                            break;
+                        }
+                    }
+                    if (!course_in_list) {
+                        requested_courses.push({
+                            course: course,
+                            semester: semester,
+                        });
                         $("#courseListContainer").append(
                             "<div class='row'><div class='col-md-6'>" +
                                 course +
@@ -222,12 +231,22 @@
                 $("#semester").val("");
             });
 
-            $("#remove-course").click(function () {
-                var course = $(this).val();
-                var index = requested_courses.indexOf(course);
-                requested_courses.splice(index, 1);
-                $("#courseListContainer").children().last().remove();
-            });
+            var removeCourse = function (e) {
+                var course = $(e)
+                    .parent()
+                    .parent()
+                    .find("div:first-child")
+                    .text();
+                var semester = $(e)
+                    .parent()
+                    .parent()
+                    .find("div:last-child")
+                    .text();
+                requested_courses = requested_courses.filter(
+                    (course_obj) => course_obj.course != course
+                );
+                $(e).parent().parent().remove();
+            };
         </script>
     </body>
 </html>

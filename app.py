@@ -1,5 +1,10 @@
 from flask import Flask, redirect, url_for, render_template, request, jsonify
 
+from cp2_types import CourseRequest, CompletedClasses, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
+from fetch_data import fetch_course_infos
+from solver import generate_schedule
+from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
+
 app = Flask(__name__)
 
 
@@ -10,8 +15,10 @@ def home():
 
 @app.route('/all-courses', methods=['GET'])
 def all_courses():
-    print("got request")
-    return jsonify(["Course 1", "Course 2", "Course 3"])
+    all_courses_info = fetch_course_infos()
+    all_course_ids = [
+        course_info["id"] for course_info in all_courses_info]
+    return jsonify(all_course_ids)
 
 
 @ app.route('/recommendations')

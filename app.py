@@ -21,6 +21,14 @@ def all_courses():
     return jsonify(all_course_ids)
 
 
+@app.route('//compute-schedule', methods=['POST'])
+def compute_schedule():
+    data = dict(request.form)
+    print(data)
+
+    return jsonify({"result": "success"})
+
+
 @ app.route('/recommendations')
 def recommendations():
     # TODO: call solver on template

@@ -41,7 +41,7 @@
         <div class="container pt-3"></div>
 
         <div class="container" id="form-block">
-            <form autocomplete="off" action="javascript:calculateChances()">
+            <form autocomplete="off" id="request-form">
                 <div class="row">
                     <div class="col">
                         <h5 class="mb-3">Upload transcript</h5>
@@ -59,7 +59,6 @@
                             type="file"
                             class="form-control"
                             id="upload-transcript"
-                            onclick=""
                             value="Browse for transcript"
                         />
                     </div>
@@ -246,6 +245,52 @@
                 }
                 $(e).parent().parent().remove();
             };
+
+            $("#request-form").submit(function (e) {
+                e.preventDefault();
+                var form_data = new FormData();
+                proceed_wo_transcript = $("#proceed_wo_transcript").is(
+                    ":checked"
+                );
+                if (
+                    $("#upload-transcript").val() === "" &&
+                    !proceed_wo_transcript
+                ) {
+                    alert("Please upload a transcript");
+                    return;
+                }
+                form_data.append(
+                    "requested_courses",
+                    JSON.stringify(requested_courses)
+                );
+                form_data.append(
+                    "proceed_wo_transcript",
+                    proceed_wo_transcript
+                );
+                form_data.append(
+                    "transcript",
+                    $("#upload-transcript")[0].files[0]
+                );
+                console.log(form_data);
+                $.ajax({
+                    url: "/compute-schedule",
+                    type: "POST",
+                    data: form_data,
+                    processData: false,
+                    contentType: false,
+                    success: function (resp) {
+                        if (resp) {
+                            alert(resp);
+                        } else {
+                            alert("Success!");
+                            location.reload(true);
+                        }
+                    },
+                    error: function (resp) {
+                        alert(resp);
+                    },
+                });
+            });
         </script>
     </body>
 </html>

@@ -72,6 +72,7 @@
                             type="checkbox"
                             onchange="document.getElementById('upload-transcript').disabled = this.checked;"
                             name="proceed_wo_transcript"
+                            id="proceed_wo_transcript"
                         />
                         <label class="form-check-label" for="flexCheckDefault">
                             Proceed without uploading
@@ -154,6 +155,7 @@
                     </div>
                 </div>
                 <hr />
+                <div id="loader"></div>
             </form>
         </div>
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
@@ -247,6 +249,7 @@
                 $(e).parent().parent().remove();
             };
 
+            var spinner = $('#loader');
             $("#request-form").submit(function (e) {
                 e.preventDefault();
                 var form_data = new FormData();
@@ -257,9 +260,11 @@
                     $("#upload-transcript").val() === "" &&
                     !proceed_wo_transcript
                 ) {
+                    console.log("im here")
                     alert("Please upload a transcript");
                     return;
                 }
+                spinner.show();
                 form_data.append(
                     "requested_courses",
                     JSON.stringify(requested_courses)
@@ -281,6 +286,7 @@
                     contentType: false,
                     success: function (resp) {
                         if (resp) {
+                            spinner.hide();
                             window.location.href = resp.redirect
                         } else {
                             alert("Success!");

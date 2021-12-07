@@ -1,10 +1,10 @@
-from flask import Flask, redirect, url_for, render_template, request, jsonify
+from flask import Flask, redirect, url_for, render_template, request, jsonify, session
 import os
 from werkzeug.utils import secure_filename  
 import json
 
 from typing import Optional
-from cp2_types import CourseRequest, CompletedClasses, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
+from cp2_types import CourseRequest, CompletedClasses, Index, Requirement, RequirementBlock, ScheduleParams, Schedule
 from fetch_data import fetch_course_infos
 from solver import generate_schedule
 from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
@@ -12,13 +12,30 @@ from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
 app = Flask(__name__)
 ALLOWED_EXTENSIONS = {'txt', 'pdf', 'png', 'jpg', 'jpeg', 'gif'}
 app.config['UPLOAD_FOLDER'] = app.root_path + '/uploads/'
+app.secret_key = 'super secret key'
+app.config['SESSION_TYPE'] = 'filesystem'
 
 # constant for uploading files
 SAVE_TO = "./img/"
 
 # fetch courses initially
 all_courses_info = fetch_course_infos()
-all_course_ids = [course_info["id"] for course_info in all_courses_info]
+
+# add 3 free elective wild character courses (since each course can only be taken once)
+for i in range(1, 4):
+    all_courses_info.append({
+        "id": f'FREE-{i}',
+        "title": "Free Elective 1",
+        "semester": "2022C",
+        "prerequisites": [],
+        "course_quality": None,
+        "instructor_quality": None,
+        "difficulty": None,
+        "work_required": None,
+        "crosslistings": [],
+        "requirements": [],
+        "sections": []
+    })
 
 # all requirement blocks
 CIS_BSE: RequirementBlock = [
@@ -60,9 +77,6 @@ CIS_BSE: RequirementBlock = [
     Requirement(depts=['FREE'], nickname='Free Elective'),
     Requirement(depts=['FREE'], nickname='Free Elective'),
     Requirement(depts=['FREE'], nickname='Free Elective'),
-]
-SEAS_DEPTH: RequirementBlock = [
-    # TODO need a way to require two from same dept...
 ]
 SEAS_WRIT: RequirementBlock = [
     Requirement(depts=['WRIT'], max_number=99)
@@ -137,12 +151,15 @@ def home():
 
 @app.route('/all-courses', methods=['GET'])
 def all_courses():
+    all_course_ids = [course_info["id"] for course_info in all_courses_info]
     return jsonify(all_course_ids)
 
 
-@app.route('/compute-schedule', methods=['POST'])
+@app.route('/compute-schedule', methods=['GET', 'POST'])
 def compute_schedule():
     response = dict(request.form)
+
+    completed_courses = []
 
     # if we have the transcript as well
     if response["proceed_wo_transcript"] == 'false':
@@ -160,17 +177,20 @@ def compute_schedule():
                 os.mkdir(app.config["UPLOAD_FOLDER"])
 
             file.save(path)
-    
-    # get list of completed courses using OCR recognition
-    total_images = convert_to_images(save_to=SAVE_TO, pdf_file=path)
-    outfile = write_output_txt(total_images=total_images, img_file_path=SAVE_TO)
-    completed_courses = get_completed_courses(outfile)
 
+            # get list of completed courses using OCR recognition
+            total_images = convert_to_images(save_to=SAVE_TO, pdf_file=path)
+            outfile = write_output_txt(total_images=total_images, img_file_path=SAVE_TO)
+            completed_courses = get_completed_courses(outfile)
+            
     # run solver
     completed, course_requests, all_courses = get_solver_params(json.loads(response['requested_courses']), completed_courses)
-    generate_schedule(all_courses, course_requests, completed, params, verbose=True)
+    course_schedule = generate_schedule(all_courses, course_requests, completed, params, verbose=True)
 
-    return jsonify({"result": "success"})
+    # assign sessions variable
+    session["recommended_courses"] = course_schedule[0]
+
+    return jsonify(dict(redirect=url_for('recommendations')))
 
 def get_solver_params(requested_courses, completed_courses):
     # convert completed courses into proper class
@@ -195,9 +215,10 @@ def get_solver_params(requested_courses, completed_courses):
 
 @app.route('/recommendations')
 def recommendations():
-    # TODO: call solver on template
+    # display results
+    semesters = range(len(session["recommended_courses"]))
 
-    return render_template("rec.html")
+    return render_template("rec.html", data=session["recommended_courses"], semesters=semesters)
 
 
 if __name__ == '__main__':

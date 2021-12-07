@@ -59,6 +59,7 @@
                             type="file"
                             class="form-control"
                             id="upload-transcript"
+                            name="upload-transcript"
                             value="Browse for transcript"
                         />
                     </div>
@@ -70,7 +71,7 @@
                             class="form-check-input"
                             type="checkbox"
                             onchange="document.getElementById('upload-transcript').disabled = this.checked;"
-                            id="proceed_wo_transcript"
+                            name="proceed_wo_transcript"
                         />
                         <label class="form-check-label" for="flexCheckDefault">
                             Proceed without uploading
@@ -140,7 +141,7 @@
                         class="jumbotron col-md-8 jumbo"
                         id="courseListContainer"
                     >
-                        <h6>Reqeusted Courses</h6>
+                        <h6>Requested Courses</h6>
                     </div>
                 </div>
                 <div class="row">
@@ -280,7 +281,7 @@
                     contentType: false,
                     success: function (resp) {
                         if (resp) {
-                            alert(resp);
+                            window.location.href = resp.redirect
                         } else {
                             alert("Success!");
                             location.reload(true);

@@ -129,16 +129,7 @@ MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
     (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0
 }
 
-NUM_SEMESTERS = 10
-MAX_COURSES_PER_SEMESTER = 5
 MIN_COURSES_PER_SEMESTER = 4
-params = ScheduleParams(
-    NUM_SEMESTERS,
-    MAX_COURSES_PER_SEMESTER,
-    MIN_COURSES_PER_SEMESTER,
-    ALL_REQUIREMENT_BLOCKS,
-    MAX_DOUBLE_COUNTING
-)
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -185,12 +176,42 @@ def compute_schedule():
             
     # run solver
     completed, course_requests, all_courses = get_solver_params(json.loads(response['requested_courses']), completed_courses)
+    all_requirement_blocks, max_double_counting = get_requirement_blocks(False if response["MSE"] == "false" else True) 
+
+    params = ScheduleParams(
+        int(response["numSemesters"]),
+        int(response["numCourses"]),
+        MIN_COURSES_PER_SEMESTER,
+        all_requirement_blocks,
+        max_double_counting
+    )
+
     course_schedule = generate_schedule(all_courses, course_requests, completed, params, verbose=True)
 
     # assign sessions variable
     session["recommended_courses"] = course_schedule[0]
 
     return jsonify(dict(redirect=url_for('recommendations')))
+
+def get_requirement_blocks(is_submatriculating):
+    if is_submatriculating:
+        all_requirement_blocks = [CIS_BSE, CIS_MSE, SEAS_WRIT]
+        block_idx = lambda block: {tuple(block): b for b, block in enumerate(all_requirement_blocks)}[tuple(block)]
+        max_double_counting: dict[tuple[Index, Index], Optional[int]] = {
+            (block_idx(CIS_BSE), block_idx(CIS_MSE)): 3,
+            (block_idx(CIS_BSE), block_idx(SEAS_WRIT)): None,
+            (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0
+        }
+    else:
+        all_requirement_blocks = [CIS_BSE, SEAS_WRIT]
+        block_idx = lambda block: {tuple(block): b for b, block in enumerate(all_requirement_blocks)}[tuple(block)]
+        max_double_counting: dict[tuple[Index, Index], Optional[int]] = {
+            (block_idx(CIS_BSE), block_idx(SEAS_WRIT)): None,
+        }
+    
+    return all_requirement_blocks, max_double_counting
+
+
 
 def get_solver_params(requested_courses, completed_courses):
     # convert completed courses into proper class

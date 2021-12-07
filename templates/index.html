@@ -145,6 +145,89 @@
                         <h6>Requested Courses</h6>
                     </div>
                 </div>
+                <hr />
+                <div class="row">
+                    <div class="col">
+                        <h5 class="mb-3">Degree Type</h5>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col col-md-3">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            onchange="document.getElementById('MSE').disabled = this.checked;"
+                            name="BSE"
+                            id="BSE"
+                        />
+                        <label class="form-check-label" for="flexCheckDefault">
+                            BSE
+                        </label>
+                    </div>
+                    <div class="col col-md-3">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            onchange="document.getElementById('BSE').disabled = this.checked;"
+                            name="MSE"
+                            id="MSE"
+                        />
+                        <label class="form-check-label" for="flexCheckDefault">
+                            Submatriculation
+                        </label>
+                    </div>
+                </div>
+                <hr/>
+                <div class="row">
+                    <div class="col">
+                        <h5 class="mb-3">Max Courses and Number of Semesters</h5>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col col-md-3">
+                        <label for="numCourses" > Pick Max Courses</label>
+                        <select
+                            class="form-control"
+                            name="numCourses"
+                            id="numCourses"
+                            class="selectpicker form-control autofill-select"
+                        >
+                            <option
+                                value=""
+                                selected="true"
+                                disabled="disabled"
+                            >
+                                -
+                            </option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                        </select>
+                    </div>
+                    <div class="col col-md-3">
+                        <label for="numSemesters" > Pick Max Semesters</label>
+                        <select
+                            class="form-control"
+                            name="numSemesters"
+                            id="numSemesters"
+                            class="selectpicker form-control autofill-select"
+                        >
+                            <option
+                                value=""
+                                selected="true"
+                                disabled="disabled"
+                            >
+                                -
+                            </option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                        </select>
+                    </div>
+                </div>
+                <hr />
                 <div class="row">
                     <div class="col-md-3">
                         <input
@@ -260,11 +343,32 @@
                     $("#upload-transcript").val() === "" &&
                     !proceed_wo_transcript
                 ) {
-                    console.log("im here")
                     alert("Please upload a transcript");
                     return;
                 }
+                
+                // check that degree type is checked
+                degree_type_is_checked = $('#BSE').is(":checked") || $('#MSE').is(":checked");
+                
+                if (!degree_type_is_checked) {
+                    alert("please check a degree type")
+                    return;
+                }
+
+                // check that num courses and numSemesters
+                if (!$('#numCourses').val()) {
+                    alert("Please enter your desired number of max courses per semester")
+                    return;
+                }
+
+                if (!$('#numSemesters').val()) {
+                    alert("Please enter your desired number of semesters")
+                    return;
+                }
+
                 spinner.show();
+                
+                // assemble data
                 form_data.append(
                     "requested_courses",
                     JSON.stringify(requested_courses)
@@ -277,6 +381,18 @@
                     "transcript",
                     $("#upload-transcript")[0].files[0]
                 );
+
+                if ($('#MSE').is(":checked")) {
+                    form_data.append("MSE", true)
+                }
+
+                if ($('#BSE').is(":checked")) {
+                    form_data.append("MSE", false)
+                }
+
+                form_data.append("numCourses", $('#numCourses').val())
+                form_data.append("numSemesters", $('#numSemesters').val())
+
                 console.log(form_data);
                 $.ajax({
                     url: "/compute-schedule",

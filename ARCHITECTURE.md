@@ -72,6 +72,19 @@ file called "transcript.txt". It uses this txt file to assemble a list of course
 
 NOTE: this file runs into certain edge cases in terms of parsing the transcript, so certain courses might be missed. In particular, there may be courses that get missed if their description is far too large, or that don't fit the transcript file's pattern easily. 
 
+### preq_parsing.py
+This file contains all the logic associated with parsing complex prerequisite courses. It handles nesting of courses within the format provided by PenninTouch.
+
+## Web App
+### app.py
+This contains all of the endpoints serviced by the web application. Each endpoint either passes data to a html template or performs an intermediate computation and stores it in the session object.
+
+### ./static
+This contains all the styling/css as well as the scripts for the web app. 
+
+### ./templates
+This has the html templates for the web app. It uses jinja (downloaded with flask) to dynamically render your course schedule.
+
 ## DOCUMENTATION
 
 I have tried to include a good number of comments in the code. In addition, this

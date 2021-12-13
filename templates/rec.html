@@ -25,9 +25,9 @@
         >
     </nav>
   </header>
-
+  {% if num_semesters != 0 %}
   <header class="cd-main-header text-center flex flex-column flex-center">
-    <h1 margin-top="20px" class="text-xl">Your Four Year Schedule</h1>
+    <h1 style="margin-top:20px" class="text-xl">Your Four Year Schedule</h1>
   </header>
 
   <div class="cd-schedule__events">
@@ -52,7 +52,11 @@
       {% endfor %}
     </ul>
   </div>  
-  
+  {% else %}
+  <h2 style="margin: auto; width: 40%; color: red; margin-top: 20px">Sorry, no recommended courses available</h2>
+  <a style="left: 30%; margin-top: 10px"href="/" class="btn btn-primary">Try Again</button>
+  {% endif %}
+    
     <div class="cd-schedule-modal">
       <header class="cd-schedule-modal__header">
         <div class="cd-schedule-modal__content">

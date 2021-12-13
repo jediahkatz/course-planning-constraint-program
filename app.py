@@ -190,7 +190,10 @@ def compute_schedule():
     course_schedule = generate_schedule(all_courses, course_requests, completed, params, verbose=True)
 
     # assign sessions variable
-    session["recommended_courses"] = course_schedule[0]
+    if course_schedule is not None:
+        session["recommended_courses"] = course_schedule[0]
+    else:
+        session["recommended_courses"] = []
 
     return jsonify(dict(redirect=url_for('recommendations')))
 
@@ -242,7 +245,9 @@ def recommendations():
     # display results
     semesters = range(len(session["recommended_courses"]))
 
-    return render_template("rec.html", data=session["recommended_courses"], semesters=semesters)
+    num_sem = len(session["recommended_courses"])
+
+    return render_template("rec.html", data=session["recommended_courses"], semesters=semesters, num_semesters=num_sem)
 
 
 if __name__ == '__main__':

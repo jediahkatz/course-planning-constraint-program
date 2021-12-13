@@ -31,7 +31,9 @@ This project is dependent on the following packages/system configs:
 * pdf2image
 * Flask
 
-If you run `poetry install` in your terminal in the root directory, all of the venv-related packages will be installed. 
+Now, select your appropriate poetry virtual environment (use python3.9) by running `poetry env use python3.9`. NOTE: there is a bug with poetry that I ran into if you have multiple python versions installed. To verify that the correct version of python is installed, run `poetry env info` and verify that the python version is `3.9.0`. If it isn't, because poetry caches old virtual environments, you may have to delete the appropriate cached environment by running `poetry env list` and running `poetry env remove <virtualenvname>` and running `poetry env use python3.9` again.
+
+Now, if you run `poetry install` in your terminal in the root directory, all of the venv-related packages will be installed. 
 
 However, in order for pdf parsing to work, you will also need `tesseract-ocr` and `poppler` which are system packages. I downloaded both using `homebrew` but in case you are on Windows, instructions for downloading `tesseract-ocr` can be found [here](https://github.com/UB-Mannheim/tesseract/wiki#tesseract-installer-for-windows). Poppler installation on Windows is a bit more difficult, but the steps are laid out in this stackoverflow [answer](https://stackoverflow.com/a/53960829).
 

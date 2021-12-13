@@ -20,6 +20,8 @@ SAVE_TO = "./img/"
 
 # fetch courses initially
 all_courses_info = fetch_course_infos()
+all_course_ids = [course_info["id"] for course_info in all_courses_info]
+
 
 # add 3 free elective wild character courses (since each course can only be taken once)
 for i in range(1, 4):
@@ -142,7 +144,6 @@ def home():
 
 @app.route('/all-courses', methods=['GET'])
 def all_courses():
-    all_course_ids = [course_info["id"] for course_info in all_courses_info]
     return jsonify(all_course_ids)
 
 
@@ -215,7 +216,9 @@ def get_requirement_blocks(is_submatriculating):
 
 def get_solver_params(requested_courses, completed_courses):
     # convert completed courses into proper class
-    completed: list[CompletedClasses] = [CompletedClasses(element[0], element[1]) for element in completed_courses]   
+    completed: list[CompletedClasses] = [CompletedClasses(element[0], element[1]) 
+                                        for element in completed_courses
+                                        if element[0] in all_course_ids]   
     completed_course_ids = set(course_id for course_id, _ in completed)
 
     course_requests: list[CourseRequest] = [

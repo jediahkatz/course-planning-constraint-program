@@ -130,14 +130,6 @@ total_images = convert_to_images(save_to=SAVE_TO, pdf_file=PDF_FILE)
 outfile = write_output_txt(total_images=total_images, img_file_path=SAVE_TO)
 completed_courses = get_completed_courses(outfile)
 
-COMPLETED: list[CompletedClasses] = [
-    CompletedClasses(element[0], element[1]) for element in completed_courses 
-]
-
-COMPLETED_COURSE_IDS = set(
-    course_id for course_id, _ in COMPLETED
-)
-
 def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[Requirement]) -> None:
     courses_from_reqs = set(
         course_id for req in requirements for course_id in req.courses
@@ -147,6 +139,19 @@ def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[
     assert not missing_courses, f'There are missing courses: {missing_courses}'
 
 all_courses = fetch_course_infos()
+
+# assemble list of completed courses and their respective semesters
+all_course_ids = set(course_info["id"] for course_info in all_courses)
+
+COMPLETED: list[CompletedClasses] = [
+    CompletedClasses(element[0], element[1]) 
+    for element in completed_courses 
+    if element[0] in all_course_ids
+]
+
+COMPLETED_COURSE_IDS = set(
+    course_id for course_id, _ in COMPLETED
+)
 
 # add 3 free elective wild character courses (since each course can only be taken once)
 for i in range(1, 4):

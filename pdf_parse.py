@@ -82,13 +82,12 @@ def get_completed_courses(filename: str):
             line_split = line.split(" ")
 
             # check if we are at beginning of section or have a course we want to add
-            # TODO: make less naive
             if line_split[0].lower() == "fall" or line_split[0].lower() == "spring":
                 semester_idx += 1
             elif line_split[0].lower() == "advanced" and line_split[1].lower() == 'placement':
                 semester_idx = 0
             else:
-                # TODO: get masterlist of all courses at Penn (right now -> only works with curr courses)
+                # TODO: get masterlist of all courses at Penn (right now -> only works with curr semester from API)
                 if len(line_split) > 2:
                     course_name = f'{line_split[0]}-{line_split[1]}'
                     for course in courses:

@@ -124,7 +124,7 @@ REQUESTED_COURSE_IDS = set(
 
 # parse pdf to get completed courses
 SAVE_TO = "./img/"
-PDF_FILE = "Akshay_Sharma_Transcript.pdf"
+PDF_FILE = "Akshit_Sharma_Transcript.pdf"
 
 total_images = convert_to_images(save_to=SAVE_TO, pdf_file=PDF_FILE)
 outfile = write_output_txt(total_images=total_images, img_file_path=SAVE_TO)

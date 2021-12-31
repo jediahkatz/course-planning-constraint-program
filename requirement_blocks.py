@@ -1,6 +1,6 @@
 from cp2_types import Requirement, RequirementBlock
 
-
+# 40 CU CIS BSE
 CIS_BSE: RequirementBlock = [
     # === ENGINEERING ===
     Requirement(courses=['CIS-110']),
@@ -21,15 +21,17 @@ CIS_BSE: RequirementBlock = [
         max_number=699,
         nickname="CIS Elective"
     )] * 4),
-    # === MATH AND NATURAL SCIENCE ===
+    # === MATH ===
     Requirement(courses=['MATH-104']),
     Requirement(courses=['MATH-114']),
     Requirement(courses=['CIS-160']),
     Requirement(courses=['CIS-261', 'ESE-301', 'ENM-321', 'STAT-430']),
-    Requirement(courses=['MATH-240', 'MATH-312', 'MATH-313', 'MATH-314']),
+    # Requirement(courses=['MATH-240', 'MATH-312', 'MATH-313', 'MATH-314']),
+    *([Requirement(categories=['MATH@SEAS'])] * 2),
+    # === NATURAL SCIENCE ===
     Requirement(courses=['PHYS-150', 'PHYS-170', 'MEAM-110']),
     Requirement(courses=['PHYS-151', 'PHYS-171', 'ESE-112']),
-    Requirement(categories=['MATH@SEAS', 'NATSCI@SEAS']),
+    Requirement(categories=['NATSCI@SEAS']),
     # # === TODO: TECHNICAL ELECTIVES ===
     *([Requirement(categories=['ENG@SEAS'])] * 2),
     *([Requirement(categories=['ENG@SEAS', 'MATH@SEAS', 'NATSCI@SEAS'])] * 4),
@@ -88,5 +90,5 @@ MATH_MINOR: RequirementBlock = [
     Requirement(courses=['MATH-104', 'MATH-115', 'MATH-116']),
     Requirement(courses=['MATH-240', 'MATH-260']),
     Requirement(courses=['MATH-312', 'MATH-312', 'MATH-314', 'MATH-350', 'MATH-370', 'MATH-502']),
-    *([Requirement(depts=['MATH'], min_number=202)] * 3)
+    *([Requirement(depts=['MATH'], min_number=202)] * 2)
 ]

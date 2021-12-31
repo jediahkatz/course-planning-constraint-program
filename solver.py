@@ -1,6 +1,7 @@
 from collections import defaultdict
 from typing import Optional
 from typing_extensions import IntVar
+from ortools import sat
 from ortools.sat.python import cp_model
 from cp2_types import (
     CourseInfo, ScheduleParams, CompletedCourse, CourseRequest, Schedule, Id, Index, VarMap1D, VarMap2D, VarMap3D
@@ -193,6 +194,7 @@ class ScheduleGenerator:
 
         # number of times we double count
         self.num_double_counts = model.NewIntVar(0, sum(self.schedule_params.max_double_counts.values()), '')
+        self.num_double_counts.ub = sum(self.schedule_params.max_double_counts.values())
         # takes_course_in_sem[c, s] is true iff we take c in semester s
         self.takes_course_in_sem = {
             (c, s): model.NewBoolVar('') 
@@ -389,9 +391,9 @@ class ScheduleGenerator:
             # TODO: commenting this out because we can assume for now all taken courses
             # count for something -- otherwise we can ask user to label them, or maybe
             # just try to minimize total number of courses taken
-            if course_id in taken_courses:
-                # Don't add this constraint if the user has already taken the course
-                continue
+            # if course_id in taken_courses:
+            #     # Don't add this constraint if the user has already taken the course
+            #     continue
 
             if course_id in requested_courses:
                 # Don't add this constraint if the user has requested this course
@@ -481,6 +483,7 @@ class ScheduleGenerator:
             self.num_courses_taken == sum(self.takes_course[c] for c in self.course_indices)
         )
         total_num_requirements = sum(len(block) for block in self.schedule_params.requirement_blocks)
+        print(f'num_courses_taken >= {total_num_requirements} - {self.num_double_counts.ub}')
         model.Add(
             self.num_courses_taken >= total_num_requirements - self.num_double_counts
         )
@@ -488,10 +491,14 @@ class ScheduleGenerator:
     def take_completed_courses(self) -> None:
         """ Take the courses that the student has already completed. """
         model = self.model
-        for course_id, sem in self.completed_courses:
+        for course_id, sem, satisfies in self.completed_courses:
             model.Add(
                 self.takes_course_in_sem[self.course_id_to_index[course_id], sem] == 1
             )
+            for b, r in satisfies:
+                model.Add(
+                    self.satisfies[self.course_id_to_index[course_id], b, r] == 1
+                )
 
         # disallow taking any other courses in semesters that have already gone by
         max_sem = max([course.semester for course in self.completed_courses], default=0)
@@ -522,7 +529,26 @@ class ScheduleGenerator:
                 >=
                 self.schedule_params.min_courses_per_semester
             )
-    
+        
+    def dont_take_cross_listed_twice(self) -> None:
+        """ Enforce cross-listing across courses """
+        model = self.model
+
+        for c, course in enumerate(self.all_courses):
+            crosslistings = course["crosslistings"]
+
+            # get all crosslisted courses indices
+            cross_listing_indices = [
+                crosslisted_index
+                for crosslisting in crosslistings
+                if (crosslisted_index := self.course_id_to_index.get(crosslisting)) is not None
+            ]
+
+            for cross_listed_course in cross_listing_indices:
+                model.AddImplication(
+                    self.takes_course[c], 
+                    self.takes_course[cross_listed_course].Not())
+
     def minimize_maximum_difficulty(self) -> None:
         """ Main optimizer: based on creating a balanced academic load """
         model = self.model
@@ -548,25 +574,6 @@ class ScheduleGenerator:
         # minimize maximum difficulty across semesters
         model.AddMaxEquality(self.max_difficulty, self.list_difficulties)
         model.Minimize(self.max_difficulty)
-        
-    def dont_take_cross_listed_twice(self) -> None:
-        """ Enforce cross-listing across courses """
-        model = self.model
-
-        for c, course in enumerate(self.all_courses):
-            crosslistings = course["crosslistings"]
-
-            # get all crosslisted courses indices
-            cross_listing_indices = [
-                crosslisted_index
-                for crosslisting in crosslistings
-                if (crosslisted_index := self.course_id_to_index.get(crosslisting)) is not None
-            ]
-
-            for cross_listed_course in cross_listing_indices:
-                model.AddImplication(
-                    self.takes_course[c], 
-                    self.takes_course[cross_listed_course].Not())
 
     
 

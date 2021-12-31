@@ -1,4 +1,4 @@
-from typing import Optional, TypedDict, NamedTuple
+from typing import Optional, TypedDict, NamedTuple, Tuple
 from ortools.sat.python.cp_model import IntVar
 
 Id = str
@@ -14,6 +14,7 @@ class CourseRequest(NamedTuple):
 class CompletedCourse(NamedTuple):
     course_id : Id
     semester: Index
+    satisfies: list[Tuple[int, int]]
 
 class ReqCategoryInfo(TypedDict):
     id: Id

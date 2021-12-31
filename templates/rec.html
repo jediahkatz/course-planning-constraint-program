@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="../static/style.css">
+  <link
+            rel="stylesheet"
+            href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+            crossorigin="anonymous"
+        />
+  <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css?family=Poppins:300,400,400i,700"
+    />
+</head>
+<body>
+  <header>
+    <nav
+        class="navbar navbar-expand-lg shadow navbar-light bg-light"
+        id="navbar"
+    >
+        <a href="/" class="navbar-brand logotext"
+            >PennSchedulePlanner</a
+        >
+    </nav>
+  </header>
+  {% if num_semesters != 0 %}
+  <header class="cd-main-header text-center flex flex-column flex-center">
+    <h1 style="margin-top:20px" class="text-xl">Your Four Year Schedule</h1>
+  </header>
+
+  <div class="cd-schedule__events">
+    <ul>
+      {% for semester in semesters %}
+      <li class="cd-schedule__group">
+        {% if semester == 0 %} 
+        <div class="cd-schedule__top-info"><span>Pre-College Credits</span></div>
+        {% else %}
+        <div class="cd-schedule__top-info"><span>Semester {{ semester }} </span></div>
+        {% endif %}
+        <ul>
+           {% for course in data[semester] %}
+              <li class="cd-schedule__event">
+                <a data-start="09:30" data-end="10:30" data-content="event-abs-circuit" data-event="event-{{ loop.index }}" href="#0">
+                  <em class="cd-schedule__name">{{ course }}</em>
+                </a>
+              </li>
+            {% endfor %}
+        </ul>
+      </li>
+      {% endfor %}
+    </ul>
+  </div>  
+  {% else %}
+  <h2 style="margin: auto; width: 40%; color: red; margin-top: 20px">Sorry, no recommended courses available</h2>
+  <a style="left: 30%; margin-top: 10px"href="/" class="btn btn-primary">Try Again</button>
+  {% endif %}
+    
+    <div class="cd-schedule-modal">
+      <header class="cd-schedule-modal__header">
+        <div class="cd-schedule-modal__content">
+          <span class="cd-schedule-modal__date"></span>
+          <h3 class="cd-schedule-modal__name"></h3>
+        </div>
+  
+        <div class="cd-schedule-modal__header-bg"></div>
+      </header>
+  
+      <div class="cd-schedule-modal__body">
+        <div class="cd-schedule-modal__event-info"></div>
+        <div class="cd-schedule-modal__body-bg"></div>
+      </div>
+  
+      <a href="#0" class="cd-schedule-modal__close text-replace">Close</a>
+    </div>
+  
+    <div class="cd-schedule__cover-layer"></div>
+  </div> <!-- .cd-schedule -->
+</body>
+</html>

@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+        <title>PennSchedulePlanner</title>
+        <meta
+            name="description"
+            content="Create a schedule for Penn CIS track"
+        />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <link
+            rel="stylesheet"
+            href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.0/css/bootstrap.min.css"
+            crossorigin="anonymous"
+        />
+        <link
+            rel="stylesheet"
+            href="https://fonts.googleapis.com/css?family=Poppins:300,400,400i,700"
+        />
+        <link
+            rel="stylesheet"
+            href="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.6/css/selectize.bootstrap3.min.css"
+            integrity="sha256-ze/OEYGcFbPRmvCnrSeKbRTtjG4vGLHXgOqsyLFTRjg="
+            crossorigin="anonymous"
+        />
+        <link rel="stylesheet" href="../static/css/index.css" />
+    </head>
+
+    <body>
+        <header>
+            <nav
+                class="navbar navbar-expand-lg shadow navbar-light bg-light"
+                id="navbar"
+            >
+                <a href="/" class="navbar-brand logotext"
+                    >PennSchedulePlanner</a
+                >
+            </nav>
+        </header>
+        <div class="container pt-3"></div>
+
+        <div class="container" id="form-block">
+            <form autocomplete="off" id="request-form">
+                <div class="row">
+                    <div class="col">
+                        <h5 class="mb-3">Upload transcript</h5>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col">
+                        Print the transcript page on PennInTouch as pdf and
+                        upload it here.
+                    </div>
+                </div>
+                <div class="row" style="padding-top: 0.5rem">
+                    <div class="col col-md-3">
+                        <input
+                            type="file"
+                            class="form-control"
+                            id="upload-transcript"
+                            name="upload-transcript"
+                            value="Browse for transcript"
+                        />
+                    </div>
+                    <div class="col col-md-3" style="text-align: center">
+                        <h5>OR</h5>
+                    </div>
+                    <div class="col col-md-3">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            onchange="document.getElementById('upload-transcript').disabled = this.checked;"
+                            name="proceed_wo_transcript"
+                            id="proceed_wo_transcript"
+                        />
+                        <label class="form-check-label" for="flexCheckDefault">
+                            Proceed without uploading
+                        </label>
+                    </div>
+                </div>
+
+                <hr style="margin-top: 2rem" />
+
+                <div class="row">
+                    <div class="col">
+                        <h5 class="mb-3">Request Courses</h5>
+                    </div>
+                </div>
+                <div class="row" id="select-course-block">
+                    <div class="col-md-4">
+                        <label for="select-course"
+                            >Select courses to request:</label
+                        >
+                        <select
+                            name="select-course"
+                            id="select-course"
+                            class="selectpicker form-control autofill-select"
+                        ></select>
+                    </div>
+                    <div class="col-md-4">
+                        <label for="semester">Select Semester</label>
+                        <select
+                            class="form-control"
+                            name="semester"
+                            id="semester"
+                            class="selectpicker form-control autofill-select"
+                        >
+                            <option
+                                value=""
+                                selected="true"
+                                disabled="disabled"
+                            >
+                                -
+                            </option>
+                            <option value="0">Pre-college Credits</option>
+                            <option value="1">Freshman Fall</option>
+                            <option value="2">Freshman Spring</option>
+                            <option value="3">Sophomore Fall</option>
+                            <option value="4">Sophomore Spring</option>
+                            <option value="5">Junior Fall</option>
+                            <option value="6">Junior Spring</option>
+                            <option value="7">Senior Fall</option>
+                            <option value="8">Senior Spring</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col-md-3">
+                        <input
+                            type="button"
+                            class="form-control"
+                            name="add-course"
+                            id="add-course"
+                            value="Add Course"
+                        />
+                    </div>
+                </div>
+                <br />
+                <div class="row">
+                    <div
+                        class="jumbotron col-md-8 jumbo"
+                        id="courseListContainer"
+                    >
+                        <h6>Requested Courses</h6>
+                    </div>
+                </div>
+                <hr />
+                <div class="row">
+                    <div class="col">
+                        <h5 class="mb-3">Degree Type</h5>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col col-md-3">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            onchange="document.getElementById('MSE').disabled = this.checked;"
+                            name="BSE"
+                            id="BSE"
+                        />
+                        <label class="form-check-label" for="flexCheckDefault">
+                            BSE
+                        </label>
+                    </div>
+                    <div class="col col-md-3">
+                        <input
+                            class="form-check-input"
+                            type="checkbox"
+                            onchange="document.getElementById('BSE').disabled = this.checked;"
+                            name="MSE"
+                            id="MSE"
+                        />
+                        <label class="form-check-label" for="flexCheckDefault">
+                            Submatriculation
+                        </label>
+                    </div>
+                </div>
+                <hr/>
+                <div class="row">
+                    <div class="col">
+                        <h5 class="mb-3">Max Courses and Number of Semesters</h5>
+                    </div>
+                </div>
+                <div class="row">
+                    <div class="col col-md-3">
+                        <label for="numCourses" > Pick Max Courses</label>
+                        <select
+                            class="form-control"
+                            name="numCourses"
+                            id="numCourses"
+                            class="selectpicker form-control autofill-select"
+                        >
+                            <option
+                                value=""
+                                selected="true"
+                                disabled="disabled"
+                            >
+                                -
+                            </option>
+                            <option value="5">5</option>
+                            <option value="6">6</option>
+                            <option value="7">7</option>
+                            <option value="8">8</option>
+                        </select>
+                    </div>
+                    <div class="col col-md-3">
+                        <label for="numSemesters" > Pick Max Semesters</label>
+                        <select
+                            class="form-control"
+                            name="numSemesters"
+                            id="numSemesters"
+                            class="selectpicker form-control autofill-select"
+                        >
+                            <option
+                                value=""
+                                selected="true"
+                                disabled="disabled"
+                            >
+                                -
+                            </option>
+                            <option value="8">8</option>
+                            <option value="9">9</option>
+                            <option value="10">10</option>
+                            <option value="11">11</option>
+                        </select>
+                    </div>
+                </div>
+                <hr />
+                <div class="row">
+                    <div class="col-md-3">
+                        <input
+                            type="submit"
+                            class="form-control"
+                            value="Show Me My Schedule"
+                        />
+                    </div>
+                </div>
+                <hr />
+                <div id="loader"></div>
+            </form>
+        </div>
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+        <script
+            src="https://cdnjs.cloudflare.com/ajax/libs/selectize.js/0.12.6/js/standalone/selectize.min.js"
+            integrity="sha256-+C0A5Ilqmu4QcSPxrlGpaZxJ04VjsRjKu+G82kl5UJk="
+            crossorigin="anonymous"
+        ></script>
+        <script src="../static/js/index.js"></script>
+        <script>
+            if (performance.navigation.type == 2) {
+                location.reload(true);
+            }
+
+            let requested_courses = [];
+
+            $(document).ready(function () {
+                get_courses();
+            });
+
+            var get_courses = function () {
+                $.get("/all-courses")
+                    .done(function (resp) {
+                        if (resp) {
+                            courses = resp;
+                            course_options =
+                                "<option value=''>Select Course</option>";
+                            for (var i = 0; i < courses.length; i++) {
+                                course_options +=
+                                    "<option value='" +
+                                    courses[i] +
+                                    "'>" +
+                                    courses[i] +
+                                    "</option>";
+                            }
+                            $("#select-course").html(course_options);
+                            $(".autofill-select").selectize({});
+                        } else {
+                            alert(resp);
+                        }
+                    })
+                    .fail(function (resp) {
+                        alert(resp);
+                    });
+            };
+
+            $("#add-course").click(function () {
+                var course = $("#select-course").val();
+                var semester = $("#semester").val();
+                if (course && semester) {
+                    // check if course is already in the course and semester list
+                    var course_in_list = false;
+                    for (var i = 0; i < requested_courses.length; i++) {
+                        if (requested_courses[i].course == course) {
+                            course_in_list = true;
+                            break;
+                        }
+                    }
+                    if (!course_in_list) {
+                        requested_courses.push({
+                            course: course,
+                            semester: semester,
+                        });
+                        $("#courseListContainer").append(
+                            "<div class='row'><div class='col-md-6'>" +
+                                course +
+                                " (semester: " +
+                                semester +
+                                ")" +
+                                "</div><div class='col-md-6'><input type='button' class='form-control' value='Remove' onclick='removeCourse(this)'></div></div>"
+                        );
+                    }
+                }
+                $("#select-course")[0].selectize.clear();
+                $("#semester").val("");
+            });
+
+            var removeCourse = function (e) {
+                var course_string = $(e)
+                    .parent()
+                    .parent()
+                    .find("div:first-child")
+                    .text();
+                var course = course_string.split(" ")[0];
+                for (var i = 0; i < requested_courses.length; i++) {
+                    if (requested_courses[i].course === course) {
+                        requested_courses.splice(i, 1);
+                        break;
+                    }
+                }
+                $(e).parent().parent().remove();
+            };
+
+            var spinner = $('#loader');
+            $("#request-form").submit(function (e) {
+                e.preventDefault();
+                var form_data = new FormData();
+                proceed_wo_transcript = $("#proceed_wo_transcript").is(
+                    ":checked"
+                );
+                if (
+                    $("#upload-transcript").val() === "" &&
+                    !proceed_wo_transcript
+                ) {
+                    alert("Please upload a transcript");
+                    return;
+                }
+                
+                // check that degree type is checked
+                degree_type_is_checked = $('#BSE').is(":checked") || $('#MSE').is(":checked");
+                
+                if (!degree_type_is_checked) {
+                    alert("please check a degree type")
+                    return;
+                }
+
+                // check that num courses and numSemesters
+                if (!$('#numCourses').val()) {
+                    alert("Please enter your desired number of max courses per semester")
+                    return;
+                }
+
+                if (!$('#numSemesters').val()) {
+                    alert("Please enter your desired number of semesters")
+                    return;
+                }
+
+                spinner.show();
+                
+                // assemble data
+                form_data.append(
+                    "requested_courses",
+                    JSON.stringify(requested_courses)
+                );
+                form_data.append(
+                    "proceed_wo_transcript",
+                    proceed_wo_transcript
+                );
+                form_data.append(
+                    "transcript",
+                    $("#upload-transcript")[0].files[0]
+                );
+
+                if ($('#MSE').is(":checked")) {
+                    form_data.append("MSE", true)
+                }
+
+                if ($('#BSE').is(":checked")) {
+                    form_data.append("MSE", false)
+                }
+
+                form_data.append("numCourses", $('#numCourses').val())
+                form_data.append("numSemesters", $('#numSemesters').val())
+
+                console.log(form_data);
+                $.ajax({
+                    url: "/compute-schedule",
+                    type: "POST",
+                    data: form_data,
+                    processData: false,
+                    contentType: false,
+                    success: function (resp) {
+                        if (resp) {
+                            spinner.hide();
+                            window.location.href = resp.redirect
+                        } else {
+                            alert("Success!");
+                            location.reload(true);
+                        }
+                    },
+                    error: function (resp) {
+                        alert(resp);
+                    },
+                });
+            });
+        </script>
+    </body>
+</html>

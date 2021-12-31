@@ -8,6 +8,10 @@ authors = ["Jediah Katz <jediahkatz@gmail.com>"]
 python = "^3.9"
 requests = "^2.26.0"
 ortools = "9.0.9048"
+Pillow = "^8.4.0"
+pytesseract = "^0.3.8"
+pdf2image = "^1.16.0"
+Flask = "^2.0.2"
 
 [tool.poetry.dev-dependencies]
 mypy = "^0.910"

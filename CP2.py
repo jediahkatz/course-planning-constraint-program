@@ -2,12 +2,15 @@
 # Later can expand to 4yr plan
 
 from typing import Optional
-from cp2_types import CourseRequest, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
+
+from cp2_types import CourseRequest, CompletedClasses, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
 from fetch_data import fetch_course_infos
 from solver import generate_schedule
+from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
 
-NUM_SEMESTERS = 8
+NUM_SEMESTERS = 10
 MAX_COURSES_PER_SEMESTER = 5
+MIN_COURSES_PER_SEMESTER = 4
 
 CIS_BSE: RequirementBlock = [
     # === ENGINEERING ===
@@ -45,7 +48,9 @@ CIS_BSE: RequirementBlock = [
     *([Requirement(categories=['SS@SEAS', 'H@SEAS'])] * 4),
     *([Requirement(categories=['SS@SEAS', 'H@SEAS', 'TBS@SEAS'])] * 2),
     # # # === TODO: FREE ELECTIVE ===
-    Requirement(categories=['H@SEAS'], nickname='Free Elective'),
+    Requirement(depts=['FREE'], nickname='Free Elective'),
+    Requirement(depts=['FREE'], nickname='Free Elective'),
+    Requirement(depts=['FREE'], nickname='Free Elective'),
 ]
 SEAS_DEPTH: RequirementBlock = [
     # TODO need a way to require two from same dept...
@@ -101,13 +106,13 @@ MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
     (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0
 }
 
+
 COURSE_REQUESTS: list[CourseRequest] = [
     CourseRequest('CIS-110', 0),
     CourseRequest('MATH-104', 0),
     CourseRequest('BIOL-101', 0),
     CourseRequest('CIS-160', 1),
     CourseRequest('CIS-120', 1),
-    CourseRequest('MATH-114', 1),
     CourseRequest('CIS-121', 2),
     CourseRequest('CIS-320', 4),
     CourseRequest('CIS-400', 7),
@@ -116,6 +121,14 @@ COURSE_REQUESTS: list[CourseRequest] = [
 REQUESTED_COURSE_IDS = set(
     course_id for course_id, _ in COURSE_REQUESTS
 )
+
+# parse pdf to get completed courses
+SAVE_TO = "./img/"
+PDF_FILE = "Akshit_Sharma_Transcript.pdf"
+
+total_images = convert_to_images(save_to=SAVE_TO, pdf_file=PDF_FILE)
+outfile = write_output_txt(total_images=total_images, img_file_path=SAVE_TO)
+completed_courses = get_completed_courses(outfile)
 
 def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[Requirement]) -> None:
     courses_from_reqs = set(
@@ -127,13 +140,43 @@ def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[
 
 all_courses = fetch_course_infos()
 
+# assemble list of completed courses and their respective semesters
+all_course_ids = set(course_info["id"] for course_info in all_courses)
+
+COMPLETED: list[CompletedClasses] = [
+    CompletedClasses(element[0], element[1]) 
+    for element in completed_courses 
+    if element[0] in all_course_ids
+]
+
+COMPLETED_COURSE_IDS = set(
+    course_id for course_id, _ in COMPLETED
+)
+
+# add 3 free elective wild character courses (since each course can only be taken once)
+for i in range(1, 4):
+    all_courses.append({
+        "id": f'FREE-{i}',
+        "title": "Free Elective 1",
+        "semester": "2022C",
+        "prerequisites": [],
+        "course_quality": None,
+        "instructor_quality": None,
+        "difficulty": None,
+        "work_required": None,
+        "crosslistings": [],
+        "requirements": [],
+        "sections": []
+    })
+
+REQUESTED_AND_COMPLETED_IDS = COMPLETED_COURSE_IDS.union(REQUESTED_COURSE_IDS)
+
 # optimization to make the model smaller:
 # only need to consider courses that satisfy at least one of our requirements
 # TODO: may also need courses that are prerequisites for courses that satisfy 
-# TODO: add a wildcard course that represents a free elective?
 all_courses = [
     course for course in all_courses
-    if course['id'] in REQUESTED_COURSE_IDS or any(
+    if course['id'] in REQUESTED_AND_COMPLETED_IDS or any(
         req.satisfied_by_course(course)
         for major in ALL_REQUIREMENT_BLOCKS
         for req in major
@@ -145,7 +188,8 @@ raise_for_missing_courses(all_courses, [req for major in ALL_REQUIREMENT_BLOCKS 
 params = ScheduleParams(
     NUM_SEMESTERS,
     MAX_COURSES_PER_SEMESTER,
+    MIN_COURSES_PER_SEMESTER,
     ALL_REQUIREMENT_BLOCKS,
     MAX_DOUBLE_COUNTING
 )
-generate_schedule(all_courses, COURSE_REQUESTS, params, verbose=True)
+generate_schedule(all_courses, COURSE_REQUESTS, COMPLETED, params, verbose=True)

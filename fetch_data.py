@@ -81,7 +81,7 @@ def get_top_level_operator(prereq_string: str) -> str:
 """ Pre-req parser helper
     Returns 'DEPT 123' -> [DEPT-123] and '(DEPT 123 OR DEPT 456)' -> [DEPT-123, DEPT-456]
 """
-def get_individual_prereq(prereq_string: str) -> list[str]:
+def get_individual_prereq(prereq_string: str) -> Optional[list[str]]:
     if 'AND' in prereq_string:
         # 3-level operator not supported
         return None

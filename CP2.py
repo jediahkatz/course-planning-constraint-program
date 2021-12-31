@@ -3,132 +3,100 @@
 
 from typing import Optional
 
-from cp2_types import CourseRequest, CompletedClasses, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
+from cp2_types import CourseRequest, CompletedCourse, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
+from requirement_blocks import CIS_BSE, CIS_MSE, MATH_MINOR, SEAS_WRIT
 from fetch_data import fetch_course_infos
 from solver import generate_schedule
-from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
+# from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
 
-NUM_SEMESTERS = 10
-MAX_COURSES_PER_SEMESTER = 5
+NUM_SEMESTERS = 8
+MAX_COURSES_PER_SEMESTER = 8
 MIN_COURSES_PER_SEMESTER = 4
-
-CIS_BSE: RequirementBlock = [
-    # === ENGINEERING ===
-    Requirement(courses=['CIS-110']),
-    Requirement(courses=['CIS-120']),
-    Requirement(courses=['CIS-121']),
-    Requirement(courses=['CIS-240']),
-    Requirement(courses=['CIS-262']),
-    Requirement(courses=['CIS-320']),
-    Requirement(courses=['CIS-380']),
-    Requirement(courses=['CIS-400', 'CIS-410']),
-    Requirement(courses=['CIS-401', 'CIS-411']),
-    Requirement(courses=['CIS-471']),
-    # cis electives
-    *([Requirement(
-        categories=['ENG@SEAS'], 
-        depts=['CIS', 'NETS'], 
-        min_number=200,
-        max_number=699,
-        nickname="CIS Elective"
-    )] * 4),
-    # === MATH AND NATURAL SCIENCE ===
-    Requirement(courses=['MATH-104']),
-    Requirement(courses=['MATH-114']),
-    Requirement(courses=['CIS-160']),
-    Requirement(courses=['CIS-261', 'ESE-301', 'ENM-321', 'STAT-430']),
-    Requirement(courses=['MATH-240', 'MATH-312', 'MATH-313', 'MATH-314']),
-    Requirement(courses=['PHYS-150', 'PHYS-170', 'MEAM-110']),
-    Requirement(courses=['PHYS-151', 'PHYS-171', 'ESE-112']),
-    Requirement(categories=['MATH@SEAS', 'NATSCI@SEAS']),
-    # # === TODO: TECHNICAL ELECTIVES ===
-    *([Requirement(categories=['ENG@SEAS'])] * 6),
-    # # # === GENERAL ELECTIVES ===
-    Requirement(courses=['EAS-203']),
-    *([Requirement(categories=['SS@SEAS', 'H@SEAS'])] * 4),
-    *([Requirement(categories=['SS@SEAS', 'H@SEAS', 'TBS@SEAS'])] * 2),
-    # # # === TODO: FREE ELECTIVE ===
-    Requirement(depts=['FREE'], nickname='Free Elective'),
-    Requirement(depts=['FREE'], nickname='Free Elective'),
-    Requirement(depts=['FREE'], nickname='Free Elective'),
-]
-SEAS_DEPTH: RequirementBlock = [
-    # TODO need a way to require two from same dept...
-]
-SEAS_WRIT: RequirementBlock = [
-    Requirement(depts=['WRIT'], max_number=99)
-]
-CIS_MSE: RequirementBlock = [
-    # === CORE COURSES ===
-    # theory course
-    Requirement(courses=['CIS-502', 'CIS-511', 'CIS-677'], nickname='Theory'),
-    # systems course or 501
-    Requirement(
-        courses=['CIS-501', 'CIS-505', 'CIS-548', 'CIS-553', 'CIS-555'],
-        nickname='Systems'
-    ),
-    # core course that can be ML
-    Requirement(courses=[
-        'CIS-502', 'CIS-511',
-        'CIS-505', 'CIS-548', 'CIS-553', 'CIS-555',
-        'CIS-520', 'CIS-519', 'CIS-521',
-        'CIS-500', 'CIS-501',
-    ], nickname='Core'),
-    # core course that can't be ML
-    Requirement(courses=[
-        'CIS-502', 'CIS-511',
-        'CIS-505', 'CIS-548', 'CIS-553', 'CIS-555',
-        'CIS-500', 'CIS-501',
-    ], nickname='Core'),
-    # === CIS ELECTIVES ===
-    *([Requirement(
-        depts=['CIS'], min_number=500, max_number=699,
-        nickname='Grad CIS'
-    )] * 2),
-    Requirement(depts=['CIS'], min_number=500, max_number=700),
-    # === CIS OR NON-CIS ELECTIVES ===
-    # TODO: revisit this after allowing OR of requirements
-    *([Requirement(
-        categories=['ENG@SEAS'], min_number=500, max_number=699,
-        nickname='Grad Non-CIS'
-    )] * 3),
-]
 
 ALL_REQUIREMENT_BLOCKS: list[RequirementBlock] = [
     CIS_BSE,
     CIS_MSE,
     SEAS_WRIT,
+    MATH_MINOR,
 ]
 block_idx = lambda block: {tuple(block): b for b, block in enumerate(ALL_REQUIREMENT_BLOCKS)}[tuple(block)]
 MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
     (block_idx(CIS_BSE), block_idx(CIS_MSE)): 3,
     (block_idx(CIS_BSE), block_idx(SEAS_WRIT)): None,
-    (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0
+    (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0,
+    (block_idx(CIS_BSE), block_idx(MATH_MINOR)): None,
+    (block_idx(CIS_MSE), block_idx(MATH_MINOR)): None,
+    (block_idx(SEAS_WRIT), block_idx(MATH_MINOR)): 0,
 }
 
 
 COURSE_REQUESTS: list[CourseRequest] = [
-    CourseRequest('CIS-110', 0),
-    CourseRequest('MATH-104', 0),
-    CourseRequest('BIOL-101', 0),
-    CourseRequest('CIS-160', 1),
-    CourseRequest('CIS-120', 1),
-    CourseRequest('CIS-121', 2),
-    CourseRequest('CIS-320', 4),
-    CourseRequest('CIS-400', 7),
-    CourseRequest('CIS-401', 8),
+    # CourseRequest('CIS-400', 7),
+    # CourseRequest('CIS-401', 8),
 ]
 REQUESTED_COURSE_IDS = set(
     course_id for course_id, _ in COURSE_REQUESTS
 )
+completed_courses: list[CompletedCourse] = [
+    # AP credits
+    CompletedCourse('CIS-110', 0),
+    CompletedCourse('EAS-091', 0),
+    CompletedCourse('MATH-104', 0),
+    CompletedCourse('SPAN-202', 0),
+    CompletedCourse('BIOL-101', 0),
+    # freshman fall
+    CompletedCourse('CIS-120', 1),
+    CompletedCourse('CIS-160', 1),
+    CompletedCourse('MATH-114', 1),
+    CompletedCourse('PHYS-150', 1),
+    CompletedCourse('HIST-033', 1),
+    # freshman spring
+    CompletedCourse('CIS-121', 2),
+    CompletedCourse('CIS-262', 2),
+    CompletedCourse('PHYS-151', 2),
+    CompletedCourse('WRIT-025', 2),
+    # sophmore fall
+    CompletedCourse('CIS-240', 3),
+    CompletedCourse('NETS-412', 3),
+    CompletedCourse('CIS-261', 3),
+    CompletedCourse('CIS-500', 3),
+    CompletedCourse('MATH-502', 3),
+    CompletedCourse('MATH-240', 3),
+    # sophomore spring
+    CompletedCourse('CIS-320', 4),
+    CompletedCourse('CIS-519', 4),
+    CompletedCourse('CIS-545', 4),
+    CompletedCourse('MATH-514', 4),
+    CompletedCourse('EAS-203', 4),
+    # junior fall
+    CompletedCourse('CIS-380', 5),
+    CompletedCourse('CIS-677', 5),
+    CompletedCourse('CIS-552', 5),
+    CompletedCourse('CIMS-103', 5),
+    CompletedCourse('STSC-278', 5),
+    CompletedCourse('MATH-241', 5),
+    # junior spring
+    CompletedCourse('CIS-341', 6),
+    CompletedCourse('CIS-471', 6),
+    CompletedCourse('CIS-559', 6),
+    CompletedCourse('PHIL-414', 6),
+    CompletedCourse('FNAR-340', 6),
+    # senior fall
+    CompletedCourse('CIS-505', 7),
+    CompletedCourse('CIS-547', 7),
+    CompletedCourse('CIS-400', 7),
+    CompletedCourse('FNAR-342', 7),
+    CompletedCourse('MGMT-291', 7),
+    # senior spring
+]
 
 # parse pdf to get completed courses
-SAVE_TO = "./img/"
-PDF_FILE = "Akshit_Sharma_Transcript.pdf"
+# SAVE_TO = "./img/"
+# PDF_FILE = "Akshit_Sharma_Transcript.pdf"
 
-total_images = convert_to_images(save_to=SAVE_TO, pdf_file=PDF_FILE)
-outfile = write_output_txt(total_images=total_images, img_file_path=SAVE_TO)
-completed_courses = get_completed_courses(outfile)
+# total_images = convert_to_images(save_to=SAVE_TO, pdf_file=PDF_FILE)
+# outfile = write_output_txt(total_images=total_images, img_file_path=SAVE_TO)
+# completed_courses = get_completed_courses(outfile)
 
 def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[Requirement]) -> None:
     courses_from_reqs = set(
@@ -143,10 +111,10 @@ all_courses = fetch_course_infos()
 # assemble list of completed courses and their respective semesters
 all_course_ids = set(course_info["id"] for course_info in all_courses)
 
-COMPLETED: list[CompletedClasses] = [
-    CompletedClasses(element[0], element[1]) 
-    for element in completed_courses 
-    if element[0] in all_course_ids
+COMPLETED: list[CompletedCourse] = [
+    CompletedCourse(completed_course[0], completed_course[1]) 
+    for completed_course in completed_courses 
+    if completed_course[0] in all_course_ids
 ]
 
 COMPLETED_COURSE_IDS = set(
@@ -180,6 +148,7 @@ all_courses = [
         req.satisfied_by_course(course)
         for major in ALL_REQUIREMENT_BLOCKS
         for req in major
+        if 'FREE' not in req.categories
     )
 ]
 

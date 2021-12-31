@@ -3,7 +3,7 @@ from typing import Optional
 from typing_extensions import IntVar
 from ortools.sat.python import cp_model
 from cp2_types import (
-    CourseInfo, ScheduleParams, CompletedClasses, CourseRequest, Schedule, Id, Index, VarMap1D, VarMap2D, VarMap3D
+    CourseInfo, ScheduleParams, CompletedCourse, CourseRequest, Schedule, Id, Index, VarMap1D, VarMap2D, VarMap3D
 )
 
 PRECOLLEGE_SEM: Index = 0
@@ -11,7 +11,7 @@ PRECOLLEGE_SEM: Index = 0
 def generate_schedule(
     all_courses: list[CourseInfo],
     course_requests: list[CourseRequest],
-    completed_courses: list[CompletedClasses],
+    completed_courses: list[CompletedCourse],
     schedule_params: ScheduleParams,
     verbose: bool = False,
 ) -> Optional[tuple[Schedule, dict[Id, list[tuple[Index, Index]]]]]:
@@ -35,9 +35,9 @@ def generate_schedule(
 
         for s, semester in enumerate(schedule):
             if s == 0:
-                print('PRE-COLLEGE CREDITS:')
+                print(f'PRE-COLLEGE CREDITS ({len(semester)}):')
             else:
-                print(f'SEMESTER {s}:')
+                print(f'SEMESTER {s} ({len(semester)}):')
             print('------------------')
 
             for course_id in semester:
@@ -94,7 +94,7 @@ class ScheduleGenerator:
         self,
         all_courses: list[CourseInfo], 
         course_requests: list[CourseRequest],
-        completed_courses: list[CompletedClasses],
+        completed_courses: list[CompletedCourse],
         schedule_params: ScheduleParams,
     ) -> None:
         self.model = cp_model.CpModel()
@@ -144,7 +144,7 @@ class ScheduleGenerator:
             self.too_many_courses_infeasible,
             self.take_completed_courses,
             self.take_min_amount_of_courses_per_semester,
-            self.minimize_maximum_difficulty,
+            # self.minimize_maximum_difficulty,
             self.dont_take_cross_listed_twice
         ]
         for constraint in constraints:
@@ -386,6 +386,9 @@ class ScheduleGenerator:
         requested_courses = set(course.course_id for course in self.course_requests)
         for c in self.course_indices:
             course_id = self.all_courses[c]['id']
+            # TODO: commenting this out because we can assume for now all taken courses
+            # count for something -- otherwise we can ask user to label them, or maybe
+            # just try to minimize total number of courses taken
             if course_id in taken_courses:
                 # Don't add this constraint if the user has already taken the course
                 continue
@@ -418,9 +421,9 @@ class ScheduleGenerator:
             for or_prereqs in course['prerequisites']:
                 # Ignore prereqs in or_prereqs that we don't have an entry for
                 or_prereqs_indices = [
-                    self.course_id_to_index.get(prereq_id)
+                    prereq_index
                     for prereq_id in or_prereqs
-                    if self.course_id_to_index.get(prereq_id) is not None
+                    if (prereq_index := self.course_id_to_index.get(prereq_id)) is not None
                 ]
                 for s in self.semester_indices:
                     or_prereqs_satisfied = model.NewBoolVar('')
@@ -534,7 +537,12 @@ class ScheduleGenerator:
 
         for s in range(max_sem + 1, len(self.semester_indices) + 1):
             model.Add(
-                self.list_difficulties[s - 1] == sum(round(self.all_courses[c]["difficulty"] if self.all_courses[c]["difficulty"] else 0) * self.takes_course_in_sem[c, s] for c in self.course_indices)
+                self.list_difficulties[s - 1] 
+                == sum(
+                    round(difficulty) * self.takes_course_in_sem[c, s]
+                    for c in self.course_indices
+                    if (difficulty := self.all_courses[c].get("difficulty", 0) or 0) >= 0
+                )
             )
         
         # minimize maximum difficulty across semesters
@@ -550,9 +558,9 @@ class ScheduleGenerator:
 
             # get all crosslisted courses indices
             cross_listing_indices = [
-                self.course_id_to_index.get(crosslisting)
+                crosslisted_index
                 for crosslisting in crosslistings
-                if self.course_id_to_index.get(crosslisting) is not None
+                if (crosslisted_index := self.course_id_to_index.get(crosslisting)) is not None
             ]
 
             for cross_listed_course in cross_listing_indices:

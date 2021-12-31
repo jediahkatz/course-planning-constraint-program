@@ -11,7 +11,7 @@ class CourseRequest(NamedTuple):
     course_id: Id
     semester: Index
 
-class CompletedClasses(NamedTuple):
+class CompletedCourse(NamedTuple):
     course_id : Id
     semester: Index
 
@@ -26,7 +26,7 @@ class CourseInfo(TypedDict):
     id: Id
     title: str
     semester: str
-    prerequisites: list[Id]
+    prerequisites: list[list[Id]]
     course_quality: Optional[float]
     instructor_quality: Optional[float]
     difficulty: Optional[float]
@@ -94,6 +94,8 @@ class Requirement:
         return f'<{req_string}>'
 
     def satisfied_by_course(self, course_info: CourseInfo) -> bool:
+        if 'FREE' in self.categories:
+            return True
         categories = set(req['id'] for req in course_info['requirements'])
         course_id = course_info['id']
         dept, number_str = course_id.split('-')

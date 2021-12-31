@@ -4,7 +4,7 @@ from werkzeug.utils import secure_filename
 import json
 
 from typing import Optional
-from cp2_types import CourseRequest, CompletedClasses, Index, Requirement, RequirementBlock, ScheduleParams, Schedule
+from cp2_types import CourseRequest, CompletedCourse, Index, Requirement, RequirementBlock, ScheduleParams, Schedule
 from fetch_data import fetch_course_infos
 from solver import generate_schedule
 from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
@@ -219,7 +219,7 @@ def get_requirement_blocks(is_submatriculating):
 
 def get_solver_params(requested_courses, completed_courses):
     # convert completed courses into proper class
-    completed: list[CompletedClasses] = [CompletedClasses(element[0], element[1]) 
+    completed: list[CompletedCourse] = [CompletedCourse(element[0], element[1]) 
                                         for element in completed_courses
                                         if element[0] in all_course_ids]   
     completed_course_ids = set(course_id for course_id, _ in completed)

@@ -133,6 +133,7 @@ class ScheduleGenerator:
             self.link_satisfies_vars,
             self.satisfy_all_requirements_once,
             self.enforce_max_courses_per_semester,
+            self.enforce_min_courses_per_semester,
             self.enforce_double_counting_rules,
             self.take_courses_at_most_once,
             self.must_take_course_to_count,
@@ -144,9 +145,8 @@ class ScheduleGenerator:
             self.dont_assign_precollege_semester,
             self.too_many_courses_infeasible,
             self.take_completed_courses,
-            self.take_min_amount_of_courses_per_semester,
             # self.minimize_maximum_difficulty,
-            self.dont_take_cross_listed_twice
+            # self.dont_take_cross_listed_twice
         ]
         for constraint in constraints:
             constraint()
@@ -298,6 +298,19 @@ class ScheduleGenerator:
                 self.schedule_params.max_courses_per_semester
             )
 
+    def enforce_min_courses_per_semester(self) -> None:
+        """ Limit the minimum number of courses per semester based on the schedule params. """
+        model = self.model
+
+        max_sem = max([course.semester for course in self.completed_courses], default=0)
+
+        for s in range(max_sem + 1, len(self.semester_indices) + 1):
+            model.Add(
+                sum(self.takes_course_in_sem[c, s] for c in self.course_indices)
+                >=
+                self.schedule_params.min_courses_per_semester
+            )
+
     def enforce_double_counting_rules(self) -> None:
         """ Limit the number of courses that can be double counted based on the schedule params. """
         model = self.model
@@ -348,7 +361,7 @@ class ScheduleGenerator:
         model = self.model
         for c in self.course_indices:
             model.Add(
-                sum(self.takes_course_in_sem[c, s] for s in self.semester_indices) <= 1
+                sum(self.takes_course_in_sem[c, s] for s in self.semester_indices_with_precollege) <= 1
             )
 
     def must_take_course_to_count(self) -> None:
@@ -516,19 +529,6 @@ class ScheduleGenerator:
                     model.Add(
                         self.takes_course_in_sem[c, sem] == 0
                     )
-        
-    def take_min_amount_of_courses_per_semester(self) -> None:
-        """ Take a baseline amount of courses per sem """
-        model = self.model
-
-        max_sem = max([course.semester for course in self.completed_courses], default=0)
-
-        for s in range(max_sem + 1, len(self.semester_indices) + 1):
-            model.Add(
-                sum(self.takes_course_in_sem[c, s] for c in self.course_indices)
-                >=
-                self.schedule_params.min_courses_per_semester
-            )
         
     def dont_take_cross_listed_twice(self) -> None:
         """ Enforce cross-listing across courses """

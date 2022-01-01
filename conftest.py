@@ -57,7 +57,7 @@ def sample_courses_info() -> list[CourseInfo]:
             'id': 'CIS-121',
             'title': 'Programming Languages & Techniques II',
             'semester': '2022A',
-            'prerequisites': ['CIS-120', 'CIS-160'],
+            'prerequisites': [['CIS-120'], ['CIS-160']],
             'requirements': [
                 {
                     "id": "ENG@SEAS",
@@ -78,7 +78,7 @@ def sample_courses_info() -> list[CourseInfo]:
             'id': 'CIS-262',
             'title': 'Automata, Computability, and Complexity',
             'semester': '2022A',
-            'prerequisites': ['CIS-160'],
+            'prerequisites': [['CIS-160']],
             'requirements': [
                 {
                     "id": "MATH@SEAS",

@@ -146,7 +146,7 @@ class ScheduleGenerator:
             self.too_many_courses_infeasible,
             self.take_completed_courses,
             # self.minimize_maximum_difficulty,
-            # self.dont_take_cross_listed_twice
+            self.dont_take_cross_listed_twice
         ]
         for constraint in constraints:
             constraint()
@@ -490,7 +490,8 @@ class ScheduleGenerator:
         num_semesters = self.schedule_params.num_semesters
         max_courses_per_semester = self.schedule_params.max_courses_per_semester
 
-        num_courses_ub = num_semesters * max_courses_per_semester + len(self.precollege_credits)
+        max_sem = max([course.semester for course in self.completed_courses], default=0)
+        num_courses_ub = len(self.completed_courses) + max_courses_per_semester * (num_semesters - max_sem)
         self.num_courses_taken = model.NewIntVar(0, num_courses_ub, '')
         model.Add(
             self.num_courses_taken == sum(self.takes_course[c] for c in self.course_indices)

@@ -15,15 +15,15 @@ MIN_COURSES_PER_SEMESTER = 0
 
 ALL_REQUIREMENT_BLOCKS: list[RequirementBlock] = [
     CIS_BSE,
-    CIS_MSE,
+    # CIS_MSE,
     SEAS_WRIT,
     # MATH_MINOR,
 ]
 block_idx = lambda block: {tuple(block): b for b, block in enumerate(ALL_REQUIREMENT_BLOCKS)}[tuple(block)]
 MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
-    (block_idx(CIS_BSE), block_idx(CIS_MSE)): 3,
+    # (block_idx(CIS_BSE), block_idx(CIS_MSE)): 3,
     (block_idx(CIS_BSE), block_idx(SEAS_WRIT)): None,
-    (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0,
+    # (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0,
     # (block_idx(CIS_BSE), block_idx(MATH_MINOR)): None,
     # (block_idx(CIS_MSE), block_idx(MATH_MINOR)): None,
     # (block_idx(SEAS_WRIT), block_idx(MATH_MINOR)): 0,
@@ -31,68 +31,98 @@ MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
 
 
 COURSE_REQUESTS: list[CourseRequest] = [
-    # CourseRequest('CIS-400', 7),
-    # CourseRequest('CIS-401', 8),
+    CourseRequest('CIS-400', 7),
+    CourseRequest('CIS-401', 8),
 ]
 REQUESTED_COURSE_IDS = set(
     course_id for course_id, _ in COURSE_REQUESTS
 )
-completed_courses: list[CompletedCourse] = [
-    # AP credits
-    CompletedCourse('CIS-110', 0, []),
-    CompletedCourse('EAS-091', 0, []),
-    CompletedCourse('MATH-104', 0, []),
-    CompletedCourse('SPAN-202', 0, []),
-    CompletedCourse('BIOL-101', 0, []),
-    # freshman fall
-    CompletedCourse('CIS-120', 1, []),
-    CompletedCourse('CIS-160', 1, []),
-    CompletedCourse('MATH-114', 1, []),
-    CompletedCourse('PHYS-150', 1, []),
-    CompletedCourse('HIST-033', 1, []),
-    # freshman spring
-    CompletedCourse('CIS-121', 2, []),
-    CompletedCourse('CIS-262', 2, []),
-    CompletedCourse('PHYS-151', 2, []),
-    CompletedCourse('WRIT-025', 2, [(block_idx(SEAS_WRIT), 0), (block_idx(CIS_BSE), 30)]),
-    # sophmore fall
-    CompletedCourse('CIS-240', 3, []),
-    CompletedCourse('NETS-412', 3, []),
-    CompletedCourse('CIS-261', 3, []),
-    CompletedCourse('CIS-500', 3, []),
-    CompletedCourse('MATH-502', 3, []),
-    CompletedCourse('MATH-240', 3, []),
-    # sophomore spring
+# completed_courses: list[CompletedCourse] = [
+#     # AP credits
+#     CompletedCourse('CIS-110', 0, []),
+#     CompletedCourse('EAS-091', 0, []),
+#     CompletedCourse('MATH-104', 0, []),
+#     CompletedCourse('SPAN-202', 0, []),
+#     CompletedCourse('BIOL-101', 0, []),
+#     # freshman fall
+#     CompletedCourse('CIS-120', 1, []),
+#     CompletedCourse('CIS-160', 1, []),
+#     CompletedCourse('MATH-114', 1, []),
+#     CompletedCourse('PHYS-150', 1, []),
+#     CompletedCourse('HIST-033', 1, []),
+#     # freshman spring
+#     CompletedCourse('CIS-121', 2, []),
+#     CompletedCourse('CIS-262', 2, []),
+#     CompletedCourse('PHYS-151', 2, []),
+#     CompletedCourse('WRIT-025', 2, [(block_idx(SEAS_WRIT), 0), (block_idx(CIS_BSE), 30)]),
+#     # sophmore fall
+#     CompletedCourse('CIS-240', 3, []),
+#     CompletedCourse('NETS-412', 3, []),
+#     CompletedCourse('CIS-261', 3, []),
+#     CompletedCourse('CIS-500', 3, []),
+#     CompletedCourse('MATH-502', 3, []),
+#     CompletedCourse('MATH-240', 3, []),
+#     # sophomore spring
+#     CompletedCourse('CIS-320', 4, []),
+#     CompletedCourse('CIS-519', 4, [(block_idx(CIS_BSE), 10), (block_idx(CIS_MSE), 2)]),
+#     CompletedCourse('CIS-545', 4, []),
+#     CompletedCourse('MATH-514', 4, [(block_idx(CIS_BSE), 18), (block_idx(CIS_MSE), 7)]),
+#     CompletedCourse('EAS-203', 4, []),
+#     # junior fall
+#     CompletedCourse('CIS-380', 5, []),
+#     CompletedCourse('CIS-677', 5, []),
+#     CompletedCourse('CIS-552', 5, []),
+#     CompletedCourse('CIMS-103', 5, []),
+#     CompletedCourse('STSC-278', 5, []),
+#     CompletedCourse('MATH-241', 5, []),
+#     # junior spring
+#     # CompletedCourse('CIS-341', 6, []),
+#     # CompletedCourse('CIS-471', 6, []),
+#     # CompletedCourse('CIS-559', 6, [(block_idx(CIS_BSE), 12), (block_idx(CIS_MSE), 5)]),
+#     # CompletedCourse('PHIL-414', 6, []),
+#     # CompletedCourse('FNAR-340', 6, []),
+#     # # senior fall
+#     # CompletedCourse('CIS-505', 7, []),
+#     # CompletedCourse('CIS-547', 7, []),
+#     # CompletedCourse('CIS-400', 7, []),
+#     # CompletedCourse('FNAR-342', 7, []),
+#     # CompletedCourse('MGMT-291', 7, []),
+#     # # senior spring
+#     # CompletedCourse('CIS-401', 8, []),
+#     # CompletedCourse('CIS-195', 8, []),
+#     # CompletedCourse('NETS-150', 8, []),
+#     # CompletedCourse('HIST-210', 8, []),
+#     # CompletedCourse('PSYC-266', 8, []),
+# ]
+
+completed_courses = [
+    CompletedCourse('CIS-110', 0, [(0, 0)]),
+    CompletedCourse('MATH-104', 0, [(0, 14)]),
+    CompletedCourse('PHYS-150', 0, [(0, 20)]),
+    CompletedCourse('SPAN-202', 0, [(0, 30)]),
+    CompletedCourse('CIS-160', 0, [(0, 16)]),
+    CompletedCourse('FNCE-001', 0, [(0, 31)]),
+    CompletedCourse('PHIL-001', 0, [(0, 32)]),
+    CompletedCourse('PHIL-008', 0, [(0, 33)]),
+    CompletedCourse('WRIT-088', 1, [(0, 34), (1, 0)]),
+    CompletedCourse('BEPP-250', 1, [(0, 35)]),
+    CompletedCourse('CIS-120', 1, [(0, 1)]),
+    CompletedCourse('ESE-112', 1, [(0, 21)]),
+    CompletedCourse('MATH-116', 1, [(0, 15)]),
+    CompletedCourse('BEPP-220', 2, [(0, 36)]),
+    CompletedCourse('CIS-121', 2, [(0, 2)]),
+    CompletedCourse('CIS-192', 2, [(0, 10)]),
+    CompletedCourse('CIS-545', 2, [(0, 11)]),
+    CompletedCourse('ESE-301', 2, [(0, 17)]),
+    CompletedCourse('MATH-260', 2, [(0, 18)]),
+    CompletedCourse('CIS-240', 3, [(0, 3)]),
+    CompletedCourse('CIS-262', 3, [(0, 4)]),
+    CompletedCourse('MATH-514', 3, [(0, 19)]),
+    CompletedCourse('MGMT-101', 3, [(0, 37)]),
     CompletedCourse('CIS-320', 4, []),
-    CompletedCourse('CIS-519', 4, [(block_idx(CIS_BSE), 10), (block_idx(CIS_MSE), 2)]),
-    CompletedCourse('CIS-545', 4, []),
-    CompletedCourse('MATH-514', 4, [(block_idx(CIS_BSE), 18), (block_idx(CIS_MSE), 7)]),
+    CompletedCourse('CIS-571', 4, [(0, 9)]),
     CompletedCourse('EAS-203', 4, []),
-    # junior fall
-    CompletedCourse('CIS-380', 5, []),
-    CompletedCourse('CIS-677', 5, []),
-    CompletedCourse('CIS-552', 5, []),
-    CompletedCourse('CIMS-103', 5, []),
-    CompletedCourse('STSC-278', 5, []),
-    CompletedCourse('MATH-241', 5, []),
-    # junior spring
-    CompletedCourse('CIS-341', 6, []),
-    CompletedCourse('CIS-471', 6, []),
-    CompletedCourse('CIS-559', 6, [(block_idx(CIS_BSE), 12), (block_idx(CIS_MSE), 5)]),
-    CompletedCourse('PHIL-414', 6, []),
-    CompletedCourse('FNAR-340', 6, []),
-    # senior fall
-    CompletedCourse('CIS-505', 7, []),
-    CompletedCourse('CIS-547', 7, []),
-    CompletedCourse('CIS-400', 7, []),
-    CompletedCourse('FNAR-342', 7, []),
-    CompletedCourse('MGMT-291', 7, []),
-    # senior spring
-    CompletedCourse('CIS-401', 8, []),
-    CompletedCourse('CIS-195', 8, []),
-    CompletedCourse('NETS-150', 8, []),
-    CompletedCourse('HIST-210', 8, []),
-    CompletedCourse('PSYC-266', 8, []),
+    CompletedCourse('OIDD-245', 4, [(0, 23)]),
 ]
 
 # parse pdf to get completed courses

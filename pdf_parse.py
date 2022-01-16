@@ -43,6 +43,7 @@ def write_output_txt(total_images: int, img_file_path: str):
     
     # create text file to write the output transcript
     outfile = "transcript.txt"
+    return outfile
     if os.path.exists(outfile):
         os.remove(outfile)
   
@@ -71,31 +72,39 @@ Part #3 - getting completed courses as list from transcript.txt
 
 def get_completed_courses(filename: str):
     completed = []
-    semester_idx = 0
+    semester = (0, 0)
+    semesters = set()
 
     # load json
     json_file = open(COURSES_JSON)
-    courses = json.load(json_file)
+    course_ids = set(course['id'] for course in json.load(json_file))
 
     with open(filename, 'r', encoding='UTF-8') as f:
         for line in f:
-            line_split = line.split(" ")
+            line_split = line.strip().split(" ")
 
             # check if we are at beginning of section or have a course we want to add
-            if line_split[0].lower() == "fall" or line_split[0].lower() == "spring":
-                semester_idx += 1
-            elif line_split[0].lower() == "advanced" and line_split[1].lower() == 'placement':
-                semester_idx = 0
+            if line_split[0].lower() in ['fall', 'spring']:
+                semester = (int(line_split[1]), 0 if line_split[0].lower() == "spring" else 1)
+                semesters.add(semester)
+            elif (line_split[0].lower() == "advanced" and line_split[1].lower() == 'placement') or line_split[0].lower() == "summer":
+                semester = (0, 0)
+                semesters.add(semester)
             else:
                 # TODO: get masterlist of all courses at Penn (right now -> only works with curr semester from API)
-                if len(line_split) > 2:
+                if len(line_split) >= 2:
                     course_name = f'{line_split[0]}-{line_split[1]}'
-                    for course in courses:
-                        if course["id"] == course_name:
-                            completed.append((course_name, semester_idx))
-                            break
-                            
-    return completed    
+                    if course_name in course_ids:
+                        completed.append((course_name, semester))
+    
+    semester_to_idx = {
+        sem: i
+        for i, sem in enumerate(sorted(semesters))
+    }
+    completed_with_idx = [
+        (course_name, semester_to_idx[sem]) for course_name, sem in completed
+    ]
+    return completed_with_idx
 
 if __name__ == "__main__":
     total_images = convert_to_images(save_to="./img/", pdf_file=PDF_FILE)

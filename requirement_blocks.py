@@ -2,7 +2,7 @@ from cp2_types import Requirement, RequirementBlock
 
 # 40 CU CIS BSE
 CIS_BSE: RequirementBlock = [
-    # === ENGINEERING ===
+    # === 0-9: ENGINEERING ===
     Requirement(courses=['CIS-110']),
     Requirement(courses=['CIS-120']),
     Requirement(courses=['CIS-121']),
@@ -13,7 +13,7 @@ CIS_BSE: RequirementBlock = [
     Requirement(courses=['CIS-400', 'CIS-410']),
     Requirement(courses=['CIS-401', 'CIS-411']),
     Requirement(courses=['CIS-471']),
-    # cis electives
+    # 10-13: cis electives
     *([Requirement(
         categories=['ENG@SEAS'], 
         depts=['CIS', 'NETS'], 
@@ -21,25 +21,25 @@ CIS_BSE: RequirementBlock = [
         max_number=699,
         nickname="CIS Elective"
     )] * 4),
-    # === MATH ===
+    # === 14-19: MATH ===
     Requirement(courses=['MATH-104']),
     Requirement(courses=['MATH-114']),
     Requirement(courses=['CIS-160']),
     Requirement(courses=['CIS-261', 'ESE-301', 'ENM-321', 'STAT-430']),
     # Requirement(courses=['MATH-240', 'MATH-312', 'MATH-313', 'MATH-314']),
     *([Requirement(categories=['MATH@SEAS'])] * 2),
-    # === NATURAL SCIENCE ===
+    # === 20-22: NATURAL SCIENCE ===
     Requirement(courses=['PHYS-150', 'PHYS-170', 'MEAM-110']),
     Requirement(courses=['PHYS-151', 'PHYS-171', 'ESE-112']),
     Requirement(categories=['NATSCI@SEAS']),
-    # # === TODO: TECHNICAL ELECTIVES ===
+    # # === TODO: 23-28: TECHNICAL ELECTIVES ===
     *([Requirement(categories=['ENG@SEAS'])] * 2),
     *([Requirement(categories=['ENG@SEAS', 'MATH@SEAS', 'NATSCI@SEAS'])] * 4),
-    # === GENERAL ELECTIVES ===
+    # === 29-35: GENERAL ELECTIVES ===
     Requirement(courses=['EAS-203']),
     *([Requirement(categories=['SS@SEAS', 'H@SEAS'])] * 4),
     *([Requirement(categories=['SS@SEAS', 'H@SEAS', 'TBS@SEAS'])] * 2),
-    # === FREE ELECTIVES ===
+    # === 36-39: FREE ELECTIVES ===
     Requirement(categories=['SS@SEAS', 'H@SEAS'], nickname='Free Elective'),
     Requirement(categories=['SS@SEAS', 'H@SEAS'], nickname='Free Elective'),
     Requirement(categories=['SS@SEAS', 'H@SEAS'], nickname='Free Elective'),

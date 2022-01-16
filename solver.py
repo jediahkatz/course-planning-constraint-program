@@ -1,7 +1,5 @@
 from collections import defaultdict
 from typing import Optional
-from typing_extensions import IntVar
-from ortools import sat
 from ortools.sat.python import cp_model
 from cp2_types import (
     CourseInfo, ScheduleParams, CompletedCourse, CourseRequest, Schedule, Id, Index, VarMap1D, VarMap2D, VarMap3D
@@ -146,7 +144,7 @@ class ScheduleGenerator:
             self.too_many_courses_infeasible,
             self.take_completed_courses,
             # self.minimize_maximum_difficulty,
-            self.dont_take_cross_listed_twice
+            # self.dont_take_cross_listed_twice
         ]
         for constraint in constraints:
             constraint()
@@ -382,7 +380,13 @@ class ScheduleGenerator:
             for b in self.requirement_block_indices:
                 for r, req in enumerate(self.schedule_params.requirement_blocks[b]):
                     if not req.satisfied_by_course(course):
-                        model.Add(self.satisfies[c, b, r] == 0)
+                        skip = False
+                        for completed_course, _, satisfies in self.completed_courses:
+                            if completed_course == course['id'] and (b, r) in satisfies:
+                                skip = True
+                                break
+                        if not skip:
+                            model.Add(self.satisfies[c, b, r] == 0)
 
     def no_double_counting_within_requirement_blocks(self) -> None:
         """ A course can only count once within a single block of requirements. """
@@ -431,7 +435,7 @@ class ScheduleGenerator:
         model = self.model
         taken_courses = set(course.course_id for course in self.completed_courses)
         for c, course in enumerate(self.all_courses):
-            if course['id'] in taken_courses:
+            if course['id'] in taken_courses or set(course.course_id for course in self.course_requests):
                 continue
             for or_prereqs in course['prerequisites']:
                 # Ignore prereqs in or_prereqs that we don't have an entry for

@@ -131,7 +131,7 @@ MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
     (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0
 }
 
-MIN_COURSES_PER_SEMESTER = 4
+MIN_COURSES_PER_SEMESTER = 0
 
 def allowed_file(filename):
     return '.' in filename and \
@@ -219,23 +219,72 @@ def get_requirement_blocks(is_submatriculating):
 
 def get_solver_params(requested_courses, completed_courses):
     # convert completed courses into proper class
-    completed: list[CompletedCourse] = [CompletedCourse(element[0], element[1]) 
+    completed: list[CompletedCourse] = [CompletedCourse(element[0], element[1], []) 
                                         for element in completed_courses
-                                        if element[0] in all_course_ids]   
-    completed_course_ids = set(course_id for course_id, _ in completed)
+                                        if element[0] in all_course_ids]
+
+    completed = [
+        ('CIS-110', 0, [(0, 0)]),
+        ('MATH-104', 0, [(0, 14)]),
+        ('PHYS-150', 0, [(0, 20)]),
+        ('SPAN-202', 0, [(0, 30)]),
+        ('CIS-160', 0, [(0, 16)]),
+        ('FNCE-001', 0, [(0, 31)]),
+        ('PHIL-001', 0, [(0, 32)]),
+        ('PHIL-008', 0, [(0, 33)]),
+        ('WRIT-088', 1, [(0, 34), (1, 0)]),
+        ('BEPP-250', 1, [(0, 35)]),
+        ('CIS-120', 1, [(0, 1)]),
+        ('ESE-112', 1, [(0, 21)]),
+        ('MATH-116', 1, [(0, 15)]),
+        ('BEPP-220', 2, [(0, 36)]),
+        ('CIS-121', 2, [(0, 2)]),
+        ('CIS-192', 2, [(0, 10)]),
+        ('CIS-545', 2, [(0, 11)]),
+        ('ESE-301', 2, [(0, 17)]),
+        ('MATH-260', 2, [(0, 18)]),
+        # ('CIS-189', 3, [(0, 18)]),
+        ('CIS-240', 3, [(0, 3)]),
+        ('CIS-262', 3, [(0, 4)]),
+        ('MATH-514', 3, [(0, 19)]),
+        ('MGMT-101', 3, [(0, 37)]),
+        ('CIS-320', 4, []),
+        ('CIS-571', 4, [(0, 9)]),
+        ('EAS-203', 4, []),
+        ('OIDD-245', 4, [(0, 23)]),
+        ('CIS-380', 5, []),
+        ('CIS-521', 5, [(0, 12)]),
+        ('ESE-542', 5, [(0, 24)]),
+        ('NETS-212', 5, [(0, 25)]),
+    ]
+    completed = [CompletedCourse(*c) for c in completed]
+    completed_course_ids = set(course_id for course_id, _, _ in completed)
+
 
     course_requests: list[CourseRequest] = [
         CourseRequest(course["course"], int(course["semester"])) for course in requested_courses
     ]
     request_ids = set(course_id for course_id, _ in course_requests)
 
+    print(completed_course_ids)
+    print(request_ids)
+
     # get all_courses
+    # all_courses = [
+    #     course for course in all_courses_info
+    #     if course['id'] in completed_course_ids.union(request_ids) or any(
+    #         req.satisfied_by_course(course)
+    #         for major in ALL_REQUIREMENT_BLOCKS
+    #         for req in major
+    #     )
+    # ]
     all_courses = [
         course for course in all_courses_info
         if course['id'] in completed_course_ids.union(request_ids) or any(
             req.satisfied_by_course(course)
             for major in ALL_REQUIREMENT_BLOCKS
             for req in major
+            if 'FREE' not in req.categories
         )
     ]
     return completed, course_requests, all_courses

@@ -1,5 +1,6 @@
+from collections import defaultdict
 from typing import Optional, Callable, cast
-from cp2_types import CourseInfo
+from cp2_types import CourseInfo, Semester, Id
 from multiprocessing import Pool
 import requests
 import os.path
@@ -8,7 +9,7 @@ import json
 COURSES_CACHE_FILE = 'all_courses.json'
 COURSE_INFOS_CACHE_FILE = 'course_infos.json'
 BASE_URL = 'https://penncourseplan.com/api/base'
-LIST_COURSES_API_URL = f'{BASE_URL}/current/courses/'
+LIST_COURSES_API_URL = f'{BASE_URL}/{{}}/courses/'
 REQS_API_URL = f'{BASE_URL}/current/requirements/'
 GET_COURSE_API = f'{BASE_URL}/current/courses/{{}}/'
 
@@ -143,18 +144,64 @@ def parse_prerequisites(all_courses: list[dict]) -> list[CourseInfo]:
     
     return cast(list[CourseInfo], all_courses)
 
+def historical_offered_rate(curr_sem: str) -> dict[Id, dict[Semester, float]]:
+    # Look over the last 5 years to guess at which season each
+    # course is offered in. Return the fraction of semesters
+    # of each season that each course was offered.
+    print('Fetching historical data to see which semester courses are offered')
+    HORIZON_YEARS = 5
+    curr_year, curr_season = int(curr_sem[:4]), curr_sem[4]
+    num_semesters: dict[Semester, int] = defaultdict(int)
+    course_seasons_rates: dict[Id, dict[Semester, float]] = defaultdict(
+        lambda: {season: 0 for season in Semester}
+    )
+    
+    for year in range(curr_year, curr_year - HORIZON_YEARS, -1):
+        for season in Semester:
+            if year == curr_year and season > curr_season:
+                continue
+
+            LIST_SEM_COURSES_API_URL = LIST_COURSES_API_URL.format(
+                f'{year}{season.value}'
+            )
+            print(LIST_SEM_COURSES_API_URL)
+            num_semesters[season] += 1
+            courses_offered = set(
+                course['id'] for course in 
+                json.loads(
+                    requests.get(LIST_SEM_COURSES_API_URL).text
+                )
+            )
+            for course_id in courses_offered:
+                course_seasons_rates[course_id][season] += 1.0
+
+    for course_id, seasons_rates in course_seasons_rates.items():
+        for season in seasons_rates:
+            seasons_rates[season] /= num_semesters[season]
+
+    print(course_seasons_rates['CIS-160'], course_seasons_rates['CIS-380'])
+    return course_seasons_rates
+
+
 # TODO: deduplicate the entries
-def fetch_course_infos() -> list[CourseInfo]:
+def fetch_course_data() -> list[CourseInfo]:
     """ Fetch a list of each course's information from the PennCourses API. """
     print('Fetching all courses\' requirement categories')
+    LIST_CURRENT_SEM_COURSES_API_URL = LIST_COURSES_API_URL.format('current')
     course_infos: list[dict] = get_cached_value(
         COURSE_INFOS_CACHE_FILE,
         lambda: compute_course_infos(
             get_cached_value(
                 COURSES_CACHE_FILE, 
-                lambda: json.loads(requests.get(LIST_COURSES_API_URL).text)
+                lambda: json.loads(
+                    requests.get(LIST_CURRENT_SEM_COURSES_API_URL).text
+                )
             )
         )
     )
+    curr_sem = course_infos[0]['semester']
+    course_seasons_rates = historical_offered_rate(curr_sem)
+    for course in course_infos:
+        course['rate_offered'] = course_seasons_rates[course['id']]
 
     return parse_prerequisites(course_infos)

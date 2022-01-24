@@ -5,7 +5,7 @@ import json
 
 from typing import Optional
 from cp2_types import CourseRequest, CompletedCourse, Index, Requirement, RequirementBlock, ScheduleParams, Schedule
-from fetch_data import fetch_course_infos
+from fetch_data import fetch_course_data
 from solver import generate_schedule
 from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
 
@@ -19,7 +19,7 @@ app.config['SESSION_TYPE'] = 'filesystem'
 SAVE_TO = "./img/"
 
 # fetch courses initially
-all_courses_info = fetch_course_infos()
+all_courses_info = fetch_course_data()
 all_course_ids = [course_info["id"] for course_info in all_courses_info]
 
 

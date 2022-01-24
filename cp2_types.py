@@ -1,5 +1,6 @@
 from typing import Optional, TypedDict, NamedTuple, Tuple
 from ortools.sat.python.cp_model import IntVar
+from enum import Enum
 
 Id = str
 Index = int
@@ -23,10 +24,23 @@ class ReqCategoryInfo(TypedDict):
     semester: str
     name: str
 
+class Semester(Enum):
+    SPRING = 'A'
+    SUMMER = 'B'
+    FALL = 'C'
+
+    def __gt__(self, other):
+        if isinstance(other, str):
+            return self.value > other
+        if self.__class__ is other.__class__:
+            return self.value > other.value
+        return NotImplemented
+    
 class CourseInfo(TypedDict):
     id: Id
     title: str
     semester: str
+    rate_offered: dict[Semester, float]
     prerequisites: list[list[Id]]
     course_quality: Optional[float]
     instructor_quality: Optional[float]
@@ -35,7 +49,6 @@ class CourseInfo(TypedDict):
     crosslistings: list[str]
     requirements: list[ReqCategoryInfo]
     sections: list[dict]
-
 
 class Requirement:
     """

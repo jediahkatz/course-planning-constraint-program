@@ -5,7 +5,7 @@ from typing import Optional
 
 from cp2_types import CourseRequest, CompletedCourse, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
 from requirement_blocks import CIS_BSE, CIS_MSE, MATH_MINOR, SEAS_WRIT
-from fetch_data import fetch_course_infos
+from fetch_data import fetch_course_data
 from solver import generate_schedule
 # from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
 
@@ -115,7 +115,7 @@ def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[
     missing_courses = courses_from_reqs.difference(course_ids)
     assert not missing_courses, f'There are missing courses: {missing_courses}'
 
-all_courses = fetch_course_infos()
+all_courses = fetch_course_data()
 
 # assemble list of completed courses and their respective semesters
 all_course_ids = set(course_info["id"] for course_info in all_courses)

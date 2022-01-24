@@ -17,22 +17,26 @@ ALL_REQUIREMENT_BLOCKS: list[RequirementBlock] = [
     CIS_BSE,
     CIS_MSE,
     SEAS_WRIT,
-    # MATH_MINOR,
+    MATH_MINOR,
 ]
 block_idx = lambda block: {tuple(block): b for b, block in enumerate(ALL_REQUIREMENT_BLOCKS)}[tuple(block)]
 MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
     (block_idx(CIS_BSE), block_idx(CIS_MSE)): 3,
     (block_idx(CIS_BSE), block_idx(SEAS_WRIT)): None,
     (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0,
-    # (block_idx(CIS_BSE), block_idx(MATH_MINOR)): None,
-    # (block_idx(CIS_MSE), block_idx(MATH_MINOR)): None,
-    # (block_idx(SEAS_WRIT), block_idx(MATH_MINOR)): 0,
+    (block_idx(CIS_BSE), block_idx(MATH_MINOR)): None,
+    (block_idx(CIS_MSE), block_idx(MATH_MINOR)): None,
+    (block_idx(SEAS_WRIT), block_idx(MATH_MINOR)): 0,
 }
+CANNOT_TRIPLE_COUNT: set[Index] = set([
+    block_idx(CIS_BSE),
+    block_idx(CIS_MSE),
+])
 
 
 COURSE_REQUESTS: list[CourseRequest] = [
-    # CourseRequest('CIS-400', 7),
-    # CourseRequest('CIS-401', 8),
+    CourseRequest('CIS-400', 7),
+    CourseRequest('CIS-401', 8),
 ]
 REQUESTED_COURSE_IDS = set(
     course_id for course_id, _ in COURSE_REQUESTS
@@ -76,23 +80,23 @@ completed_courses: list[CompletedCourse] = [
     CompletedCourse('STSC-278', 5, []),
     CompletedCourse('MATH-241', 5, []),
     # junior spring
-    CompletedCourse('CIS-341', 6, []),
-    CompletedCourse('CIS-471', 6, []),
-    CompletedCourse('CIS-559', 6, [(block_idx(CIS_BSE), 12), (block_idx(CIS_MSE), 5)]),
-    CompletedCourse('PHIL-414', 6, []),
-    CompletedCourse('FNAR-340', 6, []),
-    # senior fall
-    CompletedCourse('CIS-505', 7, []),
-    CompletedCourse('CIS-547', 7, []),
-    CompletedCourse('CIS-400', 7, []),
-    CompletedCourse('FNAR-342', 7, []),
-    CompletedCourse('MGMT-291', 7, []),
-    # senior spring
-    CompletedCourse('CIS-401', 8, []),
-    CompletedCourse('CIS-195', 8, []),
-    CompletedCourse('NETS-150', 8, []),
-    CompletedCourse('HIST-210', 8, []),
-    CompletedCourse('PSYC-266', 8, []),
+    # CompletedCourse('CIS-341', 6, []),
+    # CompletedCourse('CIS-471', 6, []),
+    # CompletedCourse('CIS-559', 6, [(block_idx(CIS_BSE), 12), (block_idx(CIS_MSE), 5)]),
+    # CompletedCourse('PHIL-414', 6, []),
+    # CompletedCourse('FNAR-340', 6, []),
+    # # senior fall
+    # CompletedCourse('CIS-505', 7, []),
+    # CompletedCourse('CIS-547', 7, []),
+    # CompletedCourse('CIS-400', 7, []),
+    # CompletedCourse('FNAR-342', 7, []),
+    # CompletedCourse('MGMT-291', 7, []),
+    # # senior spring
+    # CompletedCourse('CIS-401', 8, []),
+    # CompletedCourse('CIS-195', 8, []),
+    # CompletedCourse('NETS-150', 8, []),
+    # CompletedCourse('HIST-210', 8, []),
+    # CompletedCourse('PSYC-266', 8, []),
 ]
 
 # parse pdf to get completed courses
@@ -164,6 +168,7 @@ params = ScheduleParams(
     MAX_COURSES_PER_SEMESTER,
     MIN_COURSES_PER_SEMESTER,
     ALL_REQUIREMENT_BLOCKS,
-    MAX_DOUBLE_COUNTING
+    MAX_DOUBLE_COUNTING,
+    CANNOT_TRIPLE_COUNT
 )
 generate_schedule(all_courses, COURSE_REQUESTS, COMPLETED, params, verbose=True)

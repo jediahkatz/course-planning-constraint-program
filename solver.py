@@ -194,7 +194,6 @@ class ScheduleGenerator:
 
         # number of times we double count
         self.num_double_counts = model.NewIntVar(0, sum(self.schedule_params.max_double_counts.values()), '')
-        self.num_double_counts.ub = sum(self.schedule_params.max_double_counts.values())
         # takes_course_in_sem[c, s] is true iff we take c in semester s
         self.takes_course_in_sem = {
             (c, s): model.NewBoolVar('') 
@@ -314,19 +313,20 @@ class ScheduleGenerator:
     def enforce_double_counting_rules(self) -> None:
         """ Limit the number of courses that can be double counted based on the schedule params. """
         model = self.model
-        # possible future BUG: if we ever allow triple counting, then need to change equation below:
-        # total number of courses = total number of requirements - num_double_counts
+        # total number of courses >= total number of requirements - num_double_counts
+        # this formula is derived from the inclusion-exclusion principle (cis160 ftw)
 
         double_counts_boolvars_between: defaultdict[tuple[Index, Index], list[cp_model.IntVar]]
         double_counts_boolvars_between = defaultdict(list)
 
         for c in self.course_indices:
-            # Disallow triple counting
+            # Disallow triple counting for requirements that cannot triple count
             total_num_times_counted = model.NewIntVar(0, 2, '')
             model.Add(
                 total_num_times_counted == sum(
                     self.satisfies[c, b, r] 
                     for b in self.requirement_block_indices
+                    if b in self.schedule_params.cannot_triple_count
                     for r in self.requirement_indices_of_block[b]
                 )
             )
@@ -502,7 +502,6 @@ class ScheduleGenerator:
             self.num_courses_taken == sum(self.takes_course[c] for c in self.course_indices)
         )
         total_num_requirements = sum(len(block) for block in self.schedule_params.requirement_blocks)
-        print(f'num_courses_taken >= {total_num_requirements} - {self.num_double_counts.ub}')
         model.Add(
             self.num_courses_taken >= total_num_requirements - self.num_double_counts
         )

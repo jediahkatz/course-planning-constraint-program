@@ -378,11 +378,16 @@ class ScheduleGenerator:
     def courses_only_satisfy_requirements(self) -> None:
         """ A course cannot satisfy anything that it is not allowed to. """
         model = self.model
+        course_satisfies = {}
+        for completed_id, _, satisfies in self.completed_courses:
+            course_satisfies[completed_id] = set(satisfies)
         for c, course in enumerate(self.all_courses):
+            course_id = course['id']
             for b in self.requirement_block_indices:
                 for r, req in enumerate(self.schedule_params.requirement_blocks[b]):
                     if not req.satisfied_by_course(course):
-                        model.Add(self.satisfies[c, b, r] == 0)
+                        if (b, r) not in course_satisfies.get(course_id, []):
+                            model.Add(self.satisfies[c, b, r] == 0)
 
     def no_double_counting_within_requirement_blocks(self) -> None:
         """ A course can only count once within a single block of requirements. """

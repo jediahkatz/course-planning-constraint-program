@@ -87,8 +87,12 @@ CIS_MSE: RequirementBlock = [
 ]
 MATH_MINOR: RequirementBlock = [
     Requirement(courses=['MATH-104']),
-    Requirement(courses=['MATH-104', 'MATH-115', 'MATH-116']),
+    Requirement(courses=['MATH-114', 'MATH-115', 'MATH-116']),
     Requirement(courses=['MATH-240', 'MATH-260']),
     Requirement(courses=['MATH-312', 'MATH-312', 'MATH-314', 'MATH-350', 'MATH-370', 'MATH-502']),
     *([Requirement(depts=['MATH'], min_number=202)] * 2)
 ]
+# STAT_MINOR: RequirementBlock = [
+#     Requirement(courses=['MATH-114', 'MATH-115']),
+#     Requirement(courses=['MATH-114', 'MATH-115']),
+# ]

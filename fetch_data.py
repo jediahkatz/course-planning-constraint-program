@@ -8,19 +8,20 @@ import json
 
 COURSES_CACHE_FILE = 'all_courses.json'
 COURSE_INFOS_CACHE_FILE = 'course_infos.json'
+COURSE_OfFER_RATES_CACHE_FILE = 'offer_rates.json'
 BASE_URL = 'https://penncourseplan.com/api/base'
 LIST_COURSES_API_URL = f'{BASE_URL}/{{}}/courses/'
 REQS_API_URL = f'{BASE_URL}/current/requirements/'
 GET_COURSE_API = f'{BASE_URL}/current/courses/{{}}/'
 
-def get_cached_value(filename: str, compute_value: Callable[[], str]):
+def get_cached_value(filename: str, compute_value: Callable[[], dict]):
     # TODO: add expiration
     if os.path.exists(filename):
         print('Cache hit!')
         with open(filename, 'r') as f:
             return json.loads(f.read())
-
     print('Cache miss!')
+
     val = compute_value()
     if val is not None:
         with open(filename, 'x') as f:
@@ -144,16 +145,16 @@ def parse_prerequisites(all_courses: list[dict]) -> list[CourseInfo]:
     
     return cast(list[CourseInfo], all_courses)
 
-def historical_offered_rate(curr_sem: str) -> dict[Id, dict[Semester, float]]:
+def historical_offered_rate(curr_sem: str) -> dict[Id, dict[str, float]]:
     # Look over the last 5 years to guess at which season each
     # course is offered in. Return the fraction of semesters
     # of each season that each course was offered.
     print('Fetching historical data to see which semester courses are offered')
     HORIZON_YEARS = 5
     curr_year, curr_season = int(curr_sem[:4]), curr_sem[4]
-    num_semesters: dict[Semester, int] = defaultdict(int)
-    course_seasons_rates: dict[Id, dict[Semester, float]] = defaultdict(
-        lambda: {season: 0 for season in Semester}
+    num_semesters: dict[str, int] = defaultdict(int)
+    course_seasons_rates: dict[Id, dict[str, float]] = defaultdict(
+        lambda: {season.value: 0 for season in Semester}
     )
     
     for year in range(curr_year, curr_year - HORIZON_YEARS, -1):
@@ -165,7 +166,7 @@ def historical_offered_rate(curr_sem: str) -> dict[Id, dict[Semester, float]]:
                 f'{year}{season.value}'
             )
             print(LIST_SEM_COURSES_API_URL)
-            num_semesters[season] += 1
+            num_semesters[season.value] += 1
             courses_offered = set(
                 course['id'] for course in 
                 json.loads(
@@ -173,13 +174,12 @@ def historical_offered_rate(curr_sem: str) -> dict[Id, dict[Semester, float]]:
                 )
             )
             for course_id in courses_offered:
-                course_seasons_rates[course_id][season] += 1.0
+                course_seasons_rates[course_id][season.value] += 1.0
 
     for course_id, seasons_rates in course_seasons_rates.items():
-        for season in seasons_rates:
-            seasons_rates[season] /= num_semesters[season]
+        for season_str in seasons_rates:
+            seasons_rates[season_str] /= num_semesters[season_str]
 
-    print(course_seasons_rates['CIS-160'], course_seasons_rates['CIS-380'])
     return course_seasons_rates
 
 
@@ -200,8 +200,13 @@ def fetch_course_data() -> list[CourseInfo]:
         )
     )
     curr_sem = course_infos[0]['semester']
-    course_seasons_rates = historical_offered_rate(curr_sem)
+    course_seasons_rates = get_cached_value(
+        COURSE_OfFER_RATES_CACHE_FILE,
+        lambda: historical_offered_rate(curr_sem)
+    )
     for course in course_infos:
-        course['rate_offered'] = course_seasons_rates[course['id']]
+        course['rate_offered'] = course_seasons_rates.get(
+            course['id'], {season.value: 0 for season in Semester}
+        )
 
     return parse_prerequisites(course_infos)

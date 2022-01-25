@@ -255,6 +255,69 @@ def test_one_course_request(sample_courses_info: Sequence[CourseInfo]):
     assert schedule[1] == ['CIS-120']
 
 
+def test_two_course_requests(sample_courses_info: Sequence[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        min_courses_per_semester=0,
+        max_courses_per_semester=2,
+        requirement_blocks=[],
+        # No double counting
+        max_double_counts=defaultdict(int),
+        cannot_triple_count=set(),
+    )
+    course_requests = [
+        CourseRequest('CIS-120', 1),
+        CourseRequest('CIS-160', 2)
+    ]
+    assert (soln := generate_schedule(sample_courses_info, course_requests, [], params))
+    schedule, _ = soln
+    # No courses should be scheduled in the precollege semester
+    assert len(schedule[0]) == 0
+    assert schedule[1] == ['CIS-120']
+    assert schedule[2] == ['CIS-160']
+
+
+def test_one_course_request_any_sem(sample_courses_info: Sequence[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        min_courses_per_semester=0,
+        max_courses_per_semester=2,
+        requirement_blocks=[],
+        # No double counting
+        max_double_counts=defaultdict(int),
+        cannot_triple_count=set(),
+    )
+    course_requests = [
+        CourseRequest('CIS-120', None)
+    ]
+    assert (soln := generate_schedule(sample_courses_info, course_requests, [], params))
+    schedule, _ = soln
+    # No courses should be scheduled in the precollege semester
+    assert len(schedule[0]) == 0
+    assert schedule[1] + schedule[2] == ['CIS-120']
+
+
+def test_two_course_requests_any_sem(sample_courses_info: Sequence[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        min_courses_per_semester=0,
+        max_courses_per_semester=2,
+        requirement_blocks=[],
+        # No double counting
+        max_double_counts=defaultdict(int),
+        cannot_triple_count=set(),
+    )
+    course_requests = [
+        CourseRequest('CIS-120', None),
+        CourseRequest('CIS-160', None)
+    ]
+    assert (soln := generate_schedule(sample_courses_info, course_requests, [], params))
+    schedule, _ = soln
+    # No courses should be scheduled in the precollege semester
+    assert len(schedule[0]) == 0
+    assert set(schedule[1] + schedule[2]) == {'CIS-120', 'CIS-160'}
+
+
 def test_invalid_course_request(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
@@ -446,7 +509,7 @@ def test_no_triple_count(sample_courses_info: Sequence[CourseInfo]):
         # Infinite double counting but we can never triple count
         # using any blocks listed in `cannot_triple_count`
         max_double_counts=defaultdict(lambda: None),
-        cannot_triple_count=set([0, 1, 2]),
+        cannot_triple_count={0, 1, 2},
     )
 
     assert not generate_schedule(sample_courses_info, [], [], params)
@@ -514,7 +577,6 @@ def test_can_take_fall_course_in_fall(sample_courses_info: Sequence[CourseInfo])
 # TODO: left to test
 # - multiple requirement blocks
 # - multiple requirements per block
-# - multiple requests
 # - more complex prerequisites
 # - more complex double counting
 # - requirements that can be satisfied in multiple ways

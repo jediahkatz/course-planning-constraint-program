@@ -149,7 +149,7 @@ class ScheduleGenerator:
             self.dont_assign_precollege_semester,
             self.too_many_courses_infeasible,
             self.take_completed_courses,
-            # self.minimize_maximum_difficulty,
+            self.minimize_maximum_difficulty,
             self.dont_take_cross_listed_twice
         ]
         for constraint in constraints:
@@ -466,19 +466,19 @@ class ScheduleGenerator:
 
         for course_id, sem in self.course_requests:
             # skip courses already taken/semesters already taken
-            if sem <= self.last_completed_sem:
+            if sem and sem <= self.last_completed_sem:
                 continue
-            
             if course_id in completed_ids:
                 continue
 
-            # skip precollege credits
-            if sem == 0:
-                continue
-
-            model.Add(
-                self.takes_course_in_sem[self.course_id_to_index[course_id], sem] == 1
-            )
+            if sem:
+                model.Add(
+                    self.takes_course_in_sem[self.course_id_to_index[course_id], sem] == 1
+                )
+            else:
+                model.Add(
+                    self.takes_course[self.course_id_to_index[course_id]] == 1
+                )
 
     def dont_assign_precollege_semester(self) -> None:
         """ Don't schedule any pre-college credits except for the ones the user populated. """
@@ -562,7 +562,7 @@ class ScheduleGenerator:
             season = Semester.SPRING if s % 2 else Semester.FALL
             for c in self.course_indices:
                 course = self.all_courses[c]
-                rate_offered_in_season = course['rate_offered'][season]
+                rate_offered_in_season = course['rate_offered'][season.value]
                 if rate_offered_in_season == 0:
                     self.model.Add(
                         self.takes_course_in_sem[c, s] == 0

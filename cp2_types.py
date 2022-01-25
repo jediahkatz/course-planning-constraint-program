@@ -10,7 +10,7 @@ VarMap3D = dict[tuple[Index, Index, Index], IntVar]
 
 class CourseRequest(NamedTuple):
     course_id: Id
-    semester: Index
+    semester: Optional[Index]
 
 class CompletedCourse(NamedTuple):
     course_id : Id
@@ -40,7 +40,7 @@ class CourseInfo(TypedDict):
     id: Id
     title: str
     semester: str
-    rate_offered: dict[Semester, float]
+    rate_offered: dict[str, float]
     prerequisites: list[list[Id]]
     course_quality: Optional[float]
     instructor_quality: Optional[float]

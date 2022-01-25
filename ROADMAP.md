@@ -1,6 +1,5 @@
 ## in-progress:
 - write tests
-- handle courses only offered in fall/spring
 
 ## todo:
 - optimize model to speed up solving time
@@ -10,13 +9,17 @@
         - e.g. that a requirement can only be satisfied by one course
     - will also need to fetch old data for courses that aren't currently offered
         - ideally instead we can maintain a new database of CUs per course
-- user can request to take class in any semester
 - change course requests to more general semester requirements (can maybe keep course requests api)
+- allow OR of requirements
 - handle summer classes
 - fix transcript parsing to be more robust
 - logging
+- refactor so that indices are only internal to solver (never in input)
+    - basically just give uuids to requirement blocks
 
 ## done (reverse chrono):
+- handle courses only offered in fall/spring
+- user can request to take class in any semester
 - allow triple counting for some requirement blocks (e.g minors)
 - don't take crosslisted courses twice (Akshay/Nischal)
 - differentiate requested courses from already taken courses (Akshay/Nischal)

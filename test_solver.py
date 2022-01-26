@@ -28,7 +28,7 @@ def test_requirement_one_course(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[[
-            Requirement(courses=['CIS-120'])
+            Requirement.base(courses=['CIS-120'])
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -48,7 +48,7 @@ def test_requirement_one_category(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[[
-            Requirement(categories=['MATH@SEAS'])
+            Requirement.base(categories=['MATH@SEAS'])
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -71,7 +71,7 @@ def test_requirement_one_dept(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[[
-            Requirement(depts=['CIS'])
+            Requirement.base(depts=['CIS'])
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -93,7 +93,7 @@ def test_requirement_one_course_not_exists(sample_courses_info: Sequence[CourseI
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[[
-            Requirement(courses=['CIS-420'])
+            Requirement.base(courses=['CIS-420'])
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -108,7 +108,7 @@ def test_requirement_one_category_not_exists(sample_courses_info: Sequence[Cours
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[[
-            Requirement(categories=['FUN@SEAS'])
+            Requirement.base(categories=['FUN@SEAS'])
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -123,7 +123,7 @@ def test_requirement_one_dept_not_exists(sample_courses_info: Sequence[CourseInf
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[[
-            Requirement(depts=['OMG'])
+            Requirement.base(depts=['OMG'])
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -138,8 +138,8 @@ def test_requirement_same_course_not_allowed(sample_courses_info: Sequence[Cours
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[[
-            Requirement(courses=['CIS-120']),
-            Requirement(courses=['CIS-120'])
+            Requirement.base(courses=['CIS-120']),
+            Requirement.base(courses=['CIS-120'])
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -154,8 +154,8 @@ def test_requirement_two_courses(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[[
-            Requirement(courses=['CIS-120']),
-            Requirement(courses=['CIS-160'])
+            Requirement.base(courses=['CIS-120']),
+            Requirement.base(courses=['CIS-160'])
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -175,8 +175,8 @@ def test_requirement_two_depts_same(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[[
-            Requirement(depts=['CIS']),
-            Requirement(depts=['CIS'])
+            Requirement.base(depts=['CIS']),
+            Requirement.base(depts=['CIS'])
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -200,8 +200,8 @@ def test_requirement_two_depts_different(sample_courses_info: Sequence[CourseInf
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[[
-            Requirement(depts=['CIS']),
-            Requirement(depts=['MATH'])
+            Requirement.base(depts=['CIS']),
+            Requirement.base(depts=['MATH'])
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -224,9 +224,9 @@ def test_more_requirements_than_slots(sample_courses_info: Sequence[CourseInfo])
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[[
-            Requirement(depts=['CIS']),
-            Requirement(depts=['CIS']),
-            Requirement(depts=['MATH']),
+            Requirement.base(depts=['CIS']),
+            Requirement.base(depts=['CIS']),
+            Requirement.base(depts=['MATH']),
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -360,8 +360,8 @@ def test_prerequisites_feasible(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[[
-            Requirement(courses=['CIS-262']),
-            Requirement(courses=['CIS-160']),
+            Requirement.base(courses=['CIS-262']),
+            Requirement.base(courses=['CIS-160']),
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -380,7 +380,7 @@ def test_prerequisites_infeasible(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[[
-            Requirement(courses=['CIS-121']),
+            Requirement.base(courses=['CIS-121']),
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -395,7 +395,7 @@ def test_prerequisites_requests_infeasible(sample_courses_info: Sequence[CourseI
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[[
-            Requirement(courses=['CIS-262']),
+            Requirement.base(courses=['CIS-262']),
         ]],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -413,8 +413,8 @@ def test_double_count(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[
-            [Requirement(categories=['MATH@SEAS'])],
-            [Requirement(categories=['FGE@WH'])],
+            [Requirement.base(categories=['MATH@SEAS'])],
+            [Requirement.base(categories=['FGE@WH'])],
         ],
         # Can double count once
         max_double_counts=defaultdict(lambda: 1),
@@ -440,8 +440,8 @@ def test_double_count_infinite_one_semester(sample_courses_info: Sequence[Course
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[
-            [Requirement(courses=['CIS-120']), Requirement(courses=['CIS-160'])],
-            [Requirement(courses=['CIS-160']), Requirement(courses=['CIS-120'])],
+            [Requirement.base(courses=['CIS-120']), Requirement.base(courses=['CIS-160'])],
+            [Requirement.base(courses=['CIS-160']), Requirement.base(courses=['CIS-120'])],
         ],
         # Can double count infinite times
         max_double_counts=defaultdict(lambda: None),
@@ -462,8 +462,8 @@ def test_double_count_infinite_multiple_semesters(sample_courses_info: Sequence[
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[
-            [Requirement(courses=['CIS-160']), Requirement(courses=['CIS-262'])],
-            [Requirement(courses=['CIS-262']), Requirement(courses=['CIS-160'])],
+            [Requirement.base(courses=['CIS-160']), Requirement.base(courses=['CIS-262'])],
+            [Requirement.base(courses=['CIS-262']), Requirement.base(courses=['CIS-160'])],
         ],
         # Can double count infinite times
         max_double_counts=defaultdict(lambda: None),
@@ -485,8 +485,8 @@ def test_no_double_count(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[
-            [Requirement(categories=['MATH@SEAS'])],
-            [Requirement(categories=['FGE@WH'])],
+            [Requirement.base(categories=['MATH@SEAS'])],
+            [Requirement.base(categories=['FGE@WH'])],
         ],
         # No double counting
         max_double_counts=defaultdict(lambda: 0),
@@ -502,9 +502,9 @@ def test_no_triple_count(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[
-            [Requirement(categories=['MATH@SEAS'])],
-            [Requirement(categories=['FGE@WH'])],
-            [Requirement(categories=['MFR@SAS'])],
+            [Requirement.base(categories=['MATH@SEAS'])],
+            [Requirement.base(categories=['FGE@WH'])],
+            [Requirement.base(categories=['MFR@SAS'])],
         ],
         # Infinite double counting but we can never triple count
         # using any blocks listed in `cannot_triple_count`
@@ -521,9 +521,9 @@ def test_triple_count(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[
-            [Requirement(categories=['MATH@SEAS'])],
-            [Requirement(categories=['FGE@WH'])],
-            [Requirement(categories=['MFR@SAS'])],
+            [Requirement.base(categories=['MATH@SEAS'])],
+            [Requirement.base(categories=['FGE@WH'])],
+            [Requirement.base(categories=['MFR@SAS'])],
         ],
         # We can triple count here since `cannot_triple_count` is empty
         max_double_counts=defaultdict(lambda: None),
@@ -543,7 +543,7 @@ def test_cant_take_fall_course_in_spring(sample_courses_info: Sequence[CourseInf
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[
-            [Requirement(courses=['CIS-261'])]
+            [Requirement.base(courses=['CIS-261'])]
         ],
         max_double_counts=defaultdict(lambda: None),
         cannot_triple_count=set(),
@@ -558,8 +558,8 @@ def test_can_take_fall_course_in_fall(sample_courses_info: Sequence[CourseInfo])
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[
-            [Requirement(courses=['CIS-160'])],
-            [Requirement(courses=['CIS-261'])]
+            [Requirement.base(courses=['CIS-160'])],
+            [Requirement.base(courses=['CIS-261'])]
         ],
         max_double_counts=defaultdict(lambda: None),
         cannot_triple_count=set(),

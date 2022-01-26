@@ -1,3 +1,34 @@
+# warning: this info may be out of date and is not meant to document behavior
+
+> feature: allow or of requirements
+- may require big overhaul/refactor of Requirements and RequirementBlocks
+- issue: if we have (course1 and course2) or (course3 and course4), this
+requires multiple courses to satisfy
+- do we want to allow a block of requirements to be satisfied by possibly different-size sequences of courses?
+    - e.g., should we allow (c1 and c2) or (c3 and c4 and c5)
+    - maybe yes, if we want requirements to be completely recursive (i.e. collapse RequirementBlock and Requirement)
+    - but also this ^ might be a premature abstraction that will just make it harder to implement efficient constraints
+- should we support:
+    - sum ( r.is_satisfied for r in reqs_group ) >= k ?
+        - note that this generalizes OR (k=1) and AND (k=n) !
+
+BaseReq = (current definition of Requirement)
+    | course
+    | category
+    | dept
+
+Requirment =
+    | BaseReq
+    | MultiReq k [Requirement]
+
+maybe we can constrain recursively like:
+- satisfied[SingleReq r]       <-> sum ( counts_for[c, r] for c in courses ) == 1
+- satisfied[MultiReq k reqs]   <-> sum ( satisfied[r] for r in reqs ) >= k
+- sum ( satisfied[r] == 1 for r in all_requirements )
+
+plus redundant:
+- for each top-level SingleReq r:    sum ( counts_for[c, r] for c in courses ) == 1
+
 > feature: change course requests to semester requirements
 
 > feature: reate a better system for double counting (+ reqs that can always double count)

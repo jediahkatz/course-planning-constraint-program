@@ -1,6 +1,8 @@
-from typing import Optional, TypedDict, NamedTuple, Tuple
+from typing import Generic, List, Optional, TypeVar, TypedDict, NamedTuple, Tuple
 from ortools.sat.python.cp_model import IntVar
 from enum import Enum
+
+from setuptools import Require
 
 Id = str
 Index = int
@@ -50,14 +52,14 @@ class CourseInfo(TypedDict):
     requirements: list[ReqCategoryInfo]
     sections: list[dict]
 
-class Requirement:
+class BaseRequirement:
     """
     A requirement that must be satisfied. Contains several optional
     parameters; ALL set parameters must be satisfied for a course to
     satisfy this requirement. If a list parameter is empty, it is
     considered unset.
 
-    The parameters are as follows:
+    Parameters:
 
     `categories`: a list of requirement categories; a course must
     fulfill at least one of them.
@@ -70,22 +72,18 @@ class Requirement:
     `min_number`: a lower bound for the course number.
 
     `max_number`: an upper bound for the course number.
-    """
-    categories: set[Id]
-    depts: set[Id]
-    courses: set[Id]
-    min_number: int
-    max_number: int
-    nickname: str
 
+    `allow_partial_cu`: whether this can be satisfied with 0.5cu + 0.5cu.
+    """
     def __init__(
         self, 
         categories: list[Id] = [], 
         depts: list[Id] = [],
         courses: list[Id] = [],
-        min_number = 0,
-        max_number = 0,
-        nickname = ''
+        min_number: int = 0,
+        max_number: int = 0,
+        allow_partial_cu: bool = False,
+        nickname: str = ''
     ):
         if not (categories or depts or courses):
             raise ValueError('Requirement cannot be empty!')
@@ -94,6 +92,7 @@ class Requirement:
         self.courses = set(courses)
         self.min_number = min_number
         self.max_number = max_number
+        self.allow_partial_cu = allow_partial_cu
         self.nickname = nickname
 
     def __str__(self) -> str:
@@ -127,6 +126,56 @@ class Requirement:
             category_satisfied, dept_satisfied, course_satisfied, min_satisfied, max_satisfied
         ))
         
+class Requirement:
+    """
+    Either a single BaseRequirement, or a set of Requirements
+    such that at least k must be satisfied.
+    """
+
+    def __init__(
+        self, 
+        base_requirement: Optional[BaseRequirement] = None, 
+        multi_requirements = None,
+        min_satisfied_reqs: int = 1,
+        nickname: str = ''
+    ) -> None:
+        self.is_multi_requirement = (base_requirement is None)
+        self._base_requirement: Optional[BaseRequirement] = base_requirement
+        self.multi_requirements: List[Requirement] = (multi_requirements or [])
+        self.min_satisfied_reqs = min_satisfied_reqs
+        self.nickname = nickname
+
+        assert not (multi_requirements and base_requirement), 'Can\'t have both base and multi requirements!'
+        assert min_satisfied_reqs >= 0, 'Vacuous requirement!'
+
+    def __str__(self) -> str:
+        if self.nickname:
+            return f'<{self.nickname}>'
+
+        if self.is_multi_requirement: 
+            return f'(>={self.min_satisfied_reqs})[{",".join(str(r) for r in self.multi_requirements)}]'
+        
+        return str(self.base_requirement)
+
+    @classmethod
+    def base(cls, **kwargs):
+        return Requirement(base_requirement=BaseRequirement(**kwargs))
+
+    @classmethod
+    def all(cls, base_requirements: List[BaseRequirement], nickname=''):
+        return Requirement(
+            nickname=nickname,
+            multi_requirements=[
+                Requirement(base_requirement=br) for br in base_requirements
+            ]
+        )
+
+    @property
+    def base_requirement(self):
+        assert not self.is_multi_requirement, 'Can\'t get base_requirement of a multi requirement!'
+        assert self._base_requirement
+        return self._base_requirement
+
 
 RequirementBlock = list[Requirement]
 

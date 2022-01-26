@@ -109,7 +109,7 @@ completed_courses: list[CompletedCourse] = [
 
 def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[Requirement]) -> None:
     courses_from_reqs = set(
-        course_id for req in requirements for course_id in req.courses
+        course_id for req in requirements for course_id in req.base_requirement.courses
     )
     course_ids = set(course['id'] for course in all_courses)
     missing_courses = courses_from_reqs.difference(course_ids)
@@ -130,22 +130,6 @@ COMPLETED_COURSE_IDS = set(
     course_id for course_id, _, _ in COMPLETED
 )
 
-# add 3 free elective wild character courses (since each course can only be taken once)
-for i in range(1, 4):
-    all_courses.append({
-        "id": f'FREE-{i}',
-        "title": "Free Elective 1",
-        "semester": "2022C",
-        "prerequisites": [],
-        "course_quality": None,
-        "instructor_quality": None,
-        "difficulty": None,
-        "work_required": None,
-        "crosslistings": [],
-        "requirements": [],
-        "sections": []
-    })
-
 REQUESTED_AND_COMPLETED_IDS = COMPLETED_COURSE_IDS.union(REQUESTED_COURSE_IDS)
 
 # optimization to make the model smaller:
@@ -154,10 +138,9 @@ REQUESTED_AND_COMPLETED_IDS = COMPLETED_COURSE_IDS.union(REQUESTED_COURSE_IDS)
 all_courses = [
     course for course in all_courses
     if course['id'] in REQUESTED_AND_COMPLETED_IDS or any(
-        req.satisfied_by_course(course)
+        req.base_requirement.satisfied_by_course(course)
         for major in ALL_REQUIREMENT_BLOCKS
         for req in major
-        if 'FREE' not in req.categories
     )
 ]
 

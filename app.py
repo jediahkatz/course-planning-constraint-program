@@ -4,7 +4,7 @@ from werkzeug.utils import secure_filename
 import json
 
 from typing import Optional
-from cp2_types import CourseRequest, CompletedCourse, Index, Requirement, RequirementBlock, ScheduleParams, Schedule
+from cp2_types import CourseRequest, CompletedCourse, Index, BaseRequirement, RequirementBlock, ScheduleParams, Schedule
 from fetch_data import fetch_course_data
 from solver import generate_schedule
 from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
@@ -42,18 +42,18 @@ for i in range(1, 4):
 # all requirement blocks
 CIS_BSE: RequirementBlock = [
     # === ENGINEERING ===
-    Requirement(courses=['CIS-110']),
-    Requirement(courses=['CIS-120']),
-    Requirement(courses=['CIS-121']),
-    Requirement(courses=['CIS-240']),
-    Requirement(courses=['CIS-262']),
-    Requirement(courses=['CIS-320']),
-    Requirement(courses=['CIS-380']),
-    Requirement(courses=['CIS-400', 'CIS-410']),
-    Requirement(courses=['CIS-401', 'CIS-411']),
-    Requirement(courses=['CIS-471']),
+    BaseRequirement(courses=['CIS-110']),
+    BaseRequirement(courses=['CIS-120']),
+    BaseRequirement(courses=['CIS-121']),
+    BaseRequirement(courses=['CIS-240']),
+    BaseRequirement(courses=['CIS-262']),
+    BaseRequirement(courses=['CIS-320']),
+    BaseRequirement(courses=['CIS-380']),
+    BaseRequirement(courses=['CIS-400', 'CIS-410']),
+    BaseRequirement(courses=['CIS-401', 'CIS-411']),
+    BaseRequirement(courses=['CIS-471']),
     # cis electives
-    *([Requirement(
+    *([BaseRequirement(
         categories=['ENG@SEAS'], 
         depts=['CIS', 'NETS'], 
         min_number=200,
@@ -61,59 +61,59 @@ CIS_BSE: RequirementBlock = [
         nickname="CIS Elective"
     )] * 4),
     # === MATH AND NATURAL SCIENCE ===
-    Requirement(courses=['MATH-104']),
-    Requirement(courses=['MATH-114']),
-    Requirement(courses=['CIS-160']),
-    Requirement(courses=['CIS-261', 'ESE-301', 'ENM-321', 'STAT-430']),
-    Requirement(courses=['MATH-240', 'MATH-312', 'MATH-313', 'MATH-314']),
-    Requirement(courses=['PHYS-150', 'PHYS-170', 'MEAM-110']),
-    Requirement(courses=['PHYS-151', 'PHYS-171', 'ESE-112']),
-    Requirement(categories=['MATH@SEAS', 'NATSCI@SEAS']),
+    BaseRequirement(courses=['MATH-104']),
+    BaseRequirement(courses=['MATH-114']),
+    BaseRequirement(courses=['CIS-160']),
+    BaseRequirement(courses=['CIS-261', 'ESE-301', 'ENM-321', 'STAT-430']),
+    BaseRequirement(courses=['MATH-240', 'MATH-312', 'MATH-313', 'MATH-314']),
+    BaseRequirement(courses=['PHYS-150', 'PHYS-170', 'MEAM-110']),
+    BaseRequirement(courses=['PHYS-151', 'PHYS-171', 'ESE-112']),
+    BaseRequirement(categories=['MATH@SEAS', 'NATSCI@SEAS']),
     # # === TODO: TECHNICAL ELECTIVES ===
-    *([Requirement(categories=['ENG@SEAS'])] * 6),
+    *([BaseRequirement(categories=['ENG@SEAS'])] * 6),
     # # # === GENERAL ELECTIVES ===
-    Requirement(courses=['EAS-203']),
-    *([Requirement(categories=['SS@SEAS', 'H@SEAS'])] * 4),
-    *([Requirement(categories=['SS@SEAS', 'H@SEAS', 'TBS@SEAS'])] * 2),
+    BaseRequirement(courses=['EAS-203']),
+    *([BaseRequirement(categories=['SS@SEAS', 'H@SEAS'])] * 4),
+    *([BaseRequirement(categories=['SS@SEAS', 'H@SEAS', 'TBS@SEAS'])] * 2),
     # # # === TODO: FREE ELECTIVE ===
-    Requirement(depts=['FREE'], nickname='Free Elective'),
-    Requirement(depts=['FREE'], nickname='Free Elective'),
-    Requirement(depts=['FREE'], nickname='Free Elective'),
+    BaseRequirement(depts=['FREE'], nickname='Free Elective'),
+    BaseRequirement(depts=['FREE'], nickname='Free Elective'),
+    BaseRequirement(depts=['FREE'], nickname='Free Elective'),
 ]
 SEAS_WRIT: RequirementBlock = [
-    Requirement(depts=['WRIT'], max_number=99)
+    BaseRequirement(depts=['WRIT'], max_number=99)
 ]
 CIS_MSE: RequirementBlock = [
     # === CORE COURSES ===
     # theory course
-    Requirement(courses=['CIS-502', 'CIS-511', 'CIS-677'], nickname='Theory'),
+    BaseRequirement(courses=['CIS-502', 'CIS-511', 'CIS-677'], nickname='Theory'),
     # systems course or 501
-    Requirement(
+    BaseRequirement(
         courses=['CIS-501', 'CIS-505', 'CIS-548', 'CIS-553', 'CIS-555'],
         nickname='Systems'
     ),
     # core course that can be ML
-    Requirement(courses=[
+    BaseRequirement(courses=[
         'CIS-502', 'CIS-511',
         'CIS-505', 'CIS-548', 'CIS-553', 'CIS-555',
         'CIS-520', 'CIS-519', 'CIS-521',
         'CIS-500', 'CIS-501',
     ], nickname='Core'),
     # core course that can't be ML
-    Requirement(courses=[
+    BaseRequirement(courses=[
         'CIS-502', 'CIS-511',
         'CIS-505', 'CIS-548', 'CIS-553', 'CIS-555',
         'CIS-500', 'CIS-501',
     ], nickname='Core'),
     # === CIS ELECTIVES ===
-    *([Requirement(
+    *([BaseRequirement(
         depts=['CIS'], min_number=500, max_number=699,
         nickname='Grad CIS'
     )] * 2),
-    Requirement(depts=['CIS'], min_number=500, max_number=700),
+    BaseRequirement(depts=['CIS'], min_number=500, max_number=700),
     # === CIS OR NON-CIS ELECTIVES ===
     # TODO: revisit this after allowing OR of requirements
-    *([Requirement(
+    *([BaseRequirement(
         categories=['ENG@SEAS'], min_number=500, max_number=699,
         nickname='Grad Non-CIS'
     )] * 3),

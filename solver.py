@@ -49,7 +49,7 @@ def generate_schedule(
                 requirement_names_str = ', '.join(requirement_names)
                 # Indicate double-counted courses with a star
                 maybe_star = '*' if len(requirement_names) > 1 else ''
-                print(f'+ {maybe_star}{course_id} (satisfies {requirement_names_str})')
+                print(f'+ {maybe_star}{course_id} (counts_for {requirement_names_str})')
             print()
 
     return schedule, course_id_to_requirement_index
@@ -90,7 +90,7 @@ class ScheduleGenerator:
     takes_course_in_sem: VarMap2D
     takes_course_by_sem: VarMap2D
     is_satisfied: VarMap2D
-    satisfies: VarMap3D
+    counts_for: VarMap3D
 
     def __init__(
         self,
@@ -149,7 +149,7 @@ class ScheduleGenerator:
             self.dont_assign_precollege_semester,
             self.too_many_courses_infeasible,
             self.take_completed_courses,
-            self.minimize_maximum_difficulty,
+            # self.minimize_maximum_difficulty,
             self.dont_take_cross_listed_twice
         ]
         for constraint in constraints:
@@ -163,6 +163,7 @@ class ScheduleGenerator:
         """
         solver = cp_model.CpSolver()
         solver.parameters.num_search_workers = num_threads
+        print(f'Model has {len(self.model.Proto().variables)} vars and {len(self.model.Proto().constraints)} constraints')
         res = solver.Solve(self.model)
         if verbose:
             print(solver.ResponseStats())
@@ -182,7 +183,7 @@ class ScheduleGenerator:
                         (b, r)
                         for b in self.requirement_block_indices
                         for r in self.requirement_indices_of_block[b]
-                        if solver.Value(self.satisfies[c, b, r]) == 1
+                        if solver.Value(self.counts_for[c, b, r]) == 1
                     ]
                     for c in selected_course_indices
                 }
@@ -215,8 +216,8 @@ class ScheduleGenerator:
             for c in self.course_indices 
             for s in self.semester_indices_with_precollege
         }
-        # satisfies[c, b, r] is true iff course c satisfies requirements[r] for block b
-        self.satisfies = {
+        # counts_for[c, b, r] is true iff course c counts for requirements[r] for block b
+        self.counts_for = {
             (c, b, r): model.NewBoolVar('')
             for c in self.course_indices
             for b in self.requirement_block_indices
@@ -258,21 +259,37 @@ class ScheduleGenerator:
                 ]).OnlyEnforceIf(self.takes_course_by_sem[c, s].Not())
 
     def link_satisfies_vars(self) -> None:
-        """ Reify `is_satisfied` in terms of `satisfies`. """
+        """ Reify `is_satisfied` in terms of `counts_for`. """
         model = self.model
         for b in self.requirement_block_indices:
             for r in self.requirement_indices_of_block[b]:
-                model.AddBoolOr([
-                    self.satisfies[c, b, r] for c in self.course_indices
-                ]).OnlyEnforceIf(
-                    self.is_satisfied[b, r]
-                )
+                # model.AddBoolOr([
+                #     self.counts_for[c, b, r] for c in self.course_indices
+                # ]).OnlyEnforceIf(
+                #     self.is_satisfied[b, r]
+                # )
+
+                # model.AddBoolAnd([
+                #     self.counts_for[c, b, r].Not() for c in self.course_indices
+                # ]).OnlyEnforceIf(
+                #     self.is_satisfied[b, r].Not()
+                # )
+
+                # model.Add(
+                #     sum(self.counts_for[c, b, r] for c in self.course_indices) >= 1
+                # ).OnlyEnforceIf(
+                #     self.is_satisfied[b, r]
+                # )
                 
-                model.AddBoolAnd([
-                    self.satisfies[c, b, r].Not() for c in self.course_indices
-                ]).OnlyEnforceIf(
-                    self.is_satisfied[b, r].Not()
-                )
+                # model.Add(
+                #     sum(self.counts_for[c, b, r] for c in self.course_indices) == 0
+                # ).OnlyEnforceIf(
+                #     self.is_satisfied[b, r].Not()
+                # )
+
+                for c in self.course_indices:
+                    model.AddImplication(self.is_satisfied[b, r].Not(), self.counts_for[c, b, r].Not())
+                    model.AddImplication(self.counts_for[c, b, r], self.is_satisfied[b, r])
 
     def satisfy_all_requirements_once(self) -> None:
         """ All requirements must be satisfied by exactly one course. """
@@ -281,7 +298,7 @@ class ScheduleGenerator:
             for r in self.requirement_indices_of_block[b]:
                 # A requirement should be satisfied by exactly one course
                 model.Add(
-                    sum(self.satisfies[c, b, r] for c in self.course_indices) == 1
+                    sum(self.counts_for[c, b, r] for c in self.course_indices) == 1
                 )
                 # Redundant: all requirements must be satisfied
                 model.Add(
@@ -324,7 +341,7 @@ class ScheduleGenerator:
             total_num_times_counted = model.NewIntVar(0, 2, '')
             model.Add(
                 total_num_times_counted == sum(
-                    self.satisfies[c, b, r] 
+                    self.counts_for[c, b, r] 
                     for b in self.requirement_block_indices
                     if b in self.schedule_params.cannot_triple_count
                     for r in self.requirement_indices_of_block[b]
@@ -336,7 +353,7 @@ class ScheduleGenerator:
                 num_times_counted_in_either_block = model.NewIntVar(0, 2, '')
                 model.Add(
                     num_times_counted_in_either_block == sum(
-                        self.satisfies[c, b, r]
+                        self.counts_for[c, b, r]
                         for b in [b1, b2]
                         for r in self.requirement_indices_of_block[b]
                     )
@@ -372,22 +389,22 @@ class ScheduleGenerator:
                 for r in self.requirement_indices_of_block[b]:
                     model.AddImplication(
                         self.takes_course[c].Not(), 
-                        self.satisfies[c, b, r].Not()
+                        self.counts_for[c, b, r].Not()
                     )
 
     def courses_only_satisfy_requirements(self) -> None:
         """ A course cannot satisfy anything that it is not allowed to. """
         model = self.model
-        course_satisfies = {}
-        for completed_id, _, completed_id_satisfies in self.completed_courses:
-            course_satisfies[completed_id] = set(completed_id_satisfies)
+        course_counts_for = {}
+        for completed_id, _, completed_id_counts_for in self.completed_courses:
+            course_counts_for[completed_id] = set(completed_id_counts_for)
         for c, course in enumerate(self.all_courses):
             course_id = course['id']
             for b in self.requirement_block_indices:
                 for r, req in enumerate(self.schedule_params.requirement_blocks[b]):
-                    if not req.satisfied_by_course(course):
-                        if (b, r) not in course_satisfies.get(course_id, []):
-                            model.Add(self.satisfies[c, b, r] == 0)
+                    if not req.base_requirement.satisfied_by_course(course):
+                        if (b, r) not in course_counts_for.get(course_id, []):
+                            model.Add(self.counts_for[c, b, r] == 0)
 
     def no_double_counting_within_requirement_blocks(self) -> None:
         """ A course can only count once within a single block of requirements. """
@@ -396,7 +413,7 @@ class ScheduleGenerator:
         for c in self.course_indices:           
             for b in self.requirement_block_indices:
                 model.Add(
-                    sum(self.satisfies[c, b, r] for r in self.requirement_indices_of_block[b]) <= 1
+                    sum(self.counts_for[c, b, r] for r in self.requirement_indices_of_block[b]) <= 1
                 )
 
     def dont_take_unnecessary_courses(self) -> None:
@@ -418,18 +435,18 @@ class ScheduleGenerator:
                 # Don't add this constraint if the user has requested this course
                 continue
 
-            course_satisfies_something = model.NewBoolVar('')
+            course_counts_for_something = model.NewBoolVar('')
             model.AddBoolOr([
-                self.satisfies[c, b, r] 
+                self.counts_for[c, b, r] 
                 for b in self.requirement_block_indices
                 for r in self.requirement_indices_of_block[b]
-            ]).OnlyEnforceIf(course_satisfies_something)
+            ]).OnlyEnforceIf(course_counts_for_something)
             model.AddBoolAnd([
-                self.satisfies[c, b, r].Not()
+                self.counts_for[c, b, r].Not()
                 for b in self.requirement_block_indices
                 for r in self.requirement_indices_of_block[b]
-            ]).OnlyEnforceIf(course_satisfies_something.Not())
-            model.AddImplication(course_satisfies_something.Not(), self.takes_course[c].Not())
+            ]).OnlyEnforceIf(course_counts_for_something.Not())
+            model.AddImplication(course_counts_for_something.Not(), self.takes_course[c].Not())
 
     def enforce_prerequisites(self) -> None:
         """ If we have taken some course by sem s, we must have taken its prereqs by sem s-1. """
@@ -508,13 +525,13 @@ class ScheduleGenerator:
     def take_completed_courses(self) -> None:
         """ Take the courses that the student has already completed. """
         model = self.model
-        for course_id, sem, satisfies in self.completed_courses:
+        for course_id, sem, counts_for in self.completed_courses:
             model.Add(
                 self.takes_course_in_sem[self.course_id_to_index[course_id], sem] == 1
             )
-            for b, r in satisfies:
+            for b, r in counts_for:
                 model.Add(
-                    self.satisfies[self.course_id_to_index[course_id], b, r] == 1
+                    self.counts_for[self.course_id_to_index[course_id], b, r] == 1
                 )
 
         # disallow taking any other courses in semesters that have already gone by

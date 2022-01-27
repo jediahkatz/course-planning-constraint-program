@@ -1,7 +1,5 @@
 from collections import defaultdict
-from lib2to3.pgen2.token import OP
-from typing import Optional, Sequence, Union
-from ortools import sat
+from typing import Optional, Sequence
 from ortools.sat.python import cp_model
 from cp2_types import (
     BaseRequirement, CourseInfo, Requirement, ScheduleParams, CompletedCourse, CourseRequest, Schedule, Id, Index, Semester, BoolVar, Uid
@@ -83,6 +81,13 @@ class ScheduleGenerator:
 
         `all_base_requirements: list[BaseRequirement]`
             A list of all BaseRequirements (i.e. leaves of the requirements tree).
+        
+        `base_requirements_of_block: list[list[BaseRequirement]]`
+            `base_requirements_of_block[b]` contains a list of all BaseRequirements in block b's subtree.
+
+        `base_requirements_lower_bound: int`
+            The minimum possible number of BaseRequirements that must be satisfied, assuming each Requirement
+            is satisfied using its k smallest sub-requirements.
 
         `last_completed_sem`: Index
             The last semester that was already completed.
@@ -166,6 +171,19 @@ class ScheduleGenerator:
                 self.base_requirements_of_block[-1].append(req.base_requirement)
                 self.all_base_requirements.append(req.base_requirement)
 
+        # Use dynamic programming
+        min_base_requirements_to_satisfy: dict[Uid, int] = {}
+        for req in reversed(self.all_requirements):
+            if not req.is_multi_requirement:
+                min_base_requirements_to_satisfy[req.uid] = 1
+            else:
+                min_base_requirements_to_satisfy[req.uid] = sum(sorted(
+                    min_base_requirements_to_satisfy[subreq.uid] for subreq in req.multi_requirements
+                )[:req.min_satisfied_reqs])
+        self.base_requirements_lower_bound = sum(
+            min_base_requirements_to_satisfy[req.uid] for block in self.requirement_blocks for req in block
+        )
+
         self.course_requests = course_requests
         self.completed_courses = completed_courses
         self.schedule_params = schedule_params
@@ -202,7 +220,7 @@ class ScheduleGenerator:
             self.dont_take_unnecessary_courses,
             self.enforce_prerequisites,
             self.take_requested_courses,
-            # self.too_many_courses_infeasible,
+            self.too_many_courses_infeasible,
             self.take_completed_courses,
             # self.minimize_maximum_difficulty,
             self.dont_take_cross_listed_twice
@@ -553,9 +571,8 @@ class ScheduleGenerator:
         model.Add(
             self.num_courses_taken == sum(self.takes_course[c] for c in self.all_course_ids)
         )
-        total_num_requirements = sum(len(block) for block in self.requirement_blocks)
         model.Add(
-            self.num_courses_taken >= total_num_requirements - self.num_double_counts
+            self.num_courses_taken >= self.base_requirements_lower_bound - self.num_double_counts
         )
     
     def take_completed_courses(self) -> None:

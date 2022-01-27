@@ -1,4 +1,5 @@
 from collections import defaultdict
+from itertools import count
 import sched
 from typing import Sequence
 from cp2_types import CompletedCourse, CourseInfo, CourseRequest, ScheduleParams, Requirement
@@ -39,7 +40,7 @@ def test_requirement_one_course(sample_courses_info: Sequence[CourseInfo]):
     schedule, _ = soln
     assert len(schedule) == 2
     # No courses should be scheduled in the precollege semester
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert schedule[1] == ['CIS-120']
 
 
@@ -59,7 +60,7 @@ def test_requirement_one_category(sample_courses_info: Sequence[CourseInfo]):
     schedule, _ = soln
     assert len(schedule) == 2
     # No courses should be scheduled in the precollege semester
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert len(schedule[1]) == 1
     course_id = schedule[1][0]
     course_info = next(info for info in sample_courses_info if info['id'] == course_id)
@@ -82,7 +83,7 @@ def test_requirement_one_dept(sample_courses_info: Sequence[CourseInfo]):
     schedule, _ = soln
     assert len(schedule) == 2
     # No courses should be scheduled in the precollege semester
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert len(schedule[1]) == 1
     course_id = schedule[1][0]
     assert course_id.startswith('CIS')
@@ -166,7 +167,7 @@ def test_requirement_two_courses(sample_courses_info: Sequence[CourseInfo]):
     schedule, _ = soln
     assert len(schedule) == 2
     # No courses should be scheduled in the precollege semester
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert not (set(schedule[1]) ^ {'CIS-120', 'CIS-160'})
 
 
@@ -187,7 +188,7 @@ def test_requirement_two_depts_same(sample_courses_info: Sequence[CourseInfo]):
     schedule, _ = soln
     assert len(schedule) == 2
     # No courses should be scheduled in the precollege semester
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert len(schedule[1]) == 2
     # Courses should not be the same
     assert len(set(schedule[1])) == 2
@@ -212,7 +213,7 @@ def test_requirement_two_depts_different(sample_courses_info: Sequence[CourseInf
     schedule, _ = soln
     assert len(schedule) == 2
     # No courses should be scheduled in the precollege semester
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert len(schedule[1]) == 2
     cis, math = sorted(schedule[1])
     assert cis.startswith('CIS')
@@ -252,7 +253,7 @@ def test_one_course_request(sample_courses_info: Sequence[CourseInfo]):
     assert (soln := generate_schedule(sample_courses_info, course_requests, [], params))
     schedule, _ = soln
     # No courses should be scheduled in the precollege semester
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert schedule[1] == ['CIS-120']
 
 
@@ -273,7 +274,7 @@ def test_two_course_requests(sample_courses_info: Sequence[CourseInfo]):
     assert (soln := generate_schedule(sample_courses_info, course_requests, [], params))
     schedule, _ = soln
     # No courses should be scheduled in the precollege semester
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert schedule[1] == ['CIS-120']
     assert schedule[2] == ['CIS-160']
 
@@ -294,7 +295,7 @@ def test_one_course_request_any_sem(sample_courses_info: Sequence[CourseInfo]):
     assert (soln := generate_schedule(sample_courses_info, course_requests, [], params))
     schedule, _ = soln
     # No courses should be scheduled in the precollege semester
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert schedule[1] + schedule[2] == ['CIS-120']
 
 
@@ -315,7 +316,7 @@ def test_two_course_requests_any_sem(sample_courses_info: Sequence[CourseInfo]):
     assert (soln := generate_schedule(sample_courses_info, course_requests, [], params))
     schedule, _ = soln
     # No courses should be scheduled in the precollege semester
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert set(schedule[1] + schedule[2]) == {'CIS-120', 'CIS-160'}
 
 
@@ -352,7 +353,7 @@ def test_one_course_request_precollege(sample_courses_info: Sequence[CourseInfo]
     assert (soln := generate_schedule(sample_courses_info, course_requests, [], params))
     schedule, _ = soln
     assert schedule[0] == ['CIS-120']
-    assert len(schedule[1]) == 0
+    assert schedule[1] == []
 
 
 def test_prerequisites_feasible(sample_courses_info: Sequence[CourseInfo]):
@@ -424,7 +425,7 @@ def test_double_count(sample_courses_info: Sequence[CourseInfo]):
 
     assert (soln := generate_schedule(sample_courses_info, [], [], params))
     schedule, counts_for = soln
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert len(schedule[1]) == 1
     course_id = schedule[1][0]
     info = next(info for info in sample_courses_info if info['id'] == course_id)
@@ -457,7 +458,7 @@ def test_double_count_infinite_one_semester(sample_courses_info: Sequence[Course
 
     assert (soln := generate_schedule(sample_courses_info, [], [], params))
     schedule, counts_for = soln
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert not set(schedule[1]) ^ {'CIS-120', 'CIS-160'}
     assert counts_for['CIS-120'] == [(0, c120_0.base_requirement), (1, c120_1.base_requirement)]
     assert counts_for['CIS-160'] == [(0, c160_0.base_requirement), (1, c160_1.base_requirement)]
@@ -485,7 +486,7 @@ def test_double_count_infinite_multiple_semesters(sample_courses_info: Sequence[
 
     assert (soln := generate_schedule(sample_courses_info, [], [], params))
     schedule, counts_for = soln
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert schedule[1] == ['CIS-160']
     assert schedule[2] == ['CIS-262']
     assert counts_for['CIS-160'] == [(0, c160_0.base_requirement), (1, c160_1.base_requirement)]
@@ -545,7 +546,7 @@ def test_triple_count(sample_courses_info: Sequence[CourseInfo]):
 
     assert (soln := generate_schedule(sample_courses_info, [], [], params))
     schedule, counts_for = soln
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert schedule[1] == ['MATH-104']
     assert counts_for['MATH-104'] == [(0, math.base_requirement), (1, fge.base_requirement), (2, mfr.base_requirement)]
 
@@ -581,10 +582,156 @@ def test_can_take_fall_course_in_fall(sample_courses_info: Sequence[CourseInfo])
     assert (soln := generate_schedule(sample_courses_info, [], [], params))
     schedule, _ = soln
     print(schedule, _)
-    assert len(schedule[0]) == 0
+    assert schedule[0] == []
     assert schedule[1] == ['CIS-160']
-    assert len(schedule[2]) == 0
+    assert schedule[2] == []
     assert schedule[3] == ['CIS-261']
+
+
+def test_multi_course_requirement_any(sample_courses_info: Sequence[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        min_courses_per_semester=0,
+        max_courses_per_semester=1,
+        requirement_blocks=[
+            [Requirement.any([
+                c160 := Requirement.base(courses=['CIS-160']),
+                Requirement.base(courses=['CIS-262']),
+            ])],
+        ],
+        max_double_counts=defaultdict(lambda: None),
+        cannot_triple_count=set(),
+    )
+
+    assert (soln := generate_schedule(sample_courses_info, [], [], params))
+    schedule, counts_for = soln
+    assert schedule[0] == []
+    assert schedule[1] == ['CIS-160']
+    assert schedule[2] == []
+
+    assert counts_for['CIS-160'] == [(0, c160.base_requirement)]
+
+
+def test_multi_course_requirement_all(sample_courses_info: Sequence[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        min_courses_per_semester=0,
+        max_courses_per_semester=1,
+        requirement_blocks=[
+            [Requirement.all([
+                c160 := Requirement.base(courses=['CIS-160']),
+                c262 := Requirement.base(courses=['CIS-262']),
+            ])],
+        ],
+        max_double_counts=defaultdict(lambda: None),
+        cannot_triple_count=set(),
+    )
+
+    assert (soln := generate_schedule(sample_courses_info, [], [], params))
+    schedule, counts_for = soln
+    assert schedule[0] == []
+    assert schedule[1] == ['CIS-160']
+    assert schedule[2] == ['CIS-262']
+
+    assert counts_for['CIS-160'] == [(0, c160.base_requirement)]
+    assert counts_for['CIS-262'] == [(0, c262.base_requirement)]
+
+
+def test_multi_course_requirement_some(sample_courses_info: Sequence[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        min_courses_per_semester=0,
+        max_courses_per_semester=1,
+        requirement_blocks=[
+            [Requirement(
+                min_satisfied_reqs=2,
+                multi_requirements=[
+                    c160 := Requirement.base(courses=['CIS-160']),
+                    Requirement.base(courses=['CIS-320']),
+                    c262 := Requirement.base(courses=['CIS-262']),
+                ],
+            )],
+        ],
+        max_double_counts=defaultdict(lambda: None),
+        cannot_triple_count=set(),
+    )
+
+    assert (soln := generate_schedule(sample_courses_info, [], [], params))
+    schedule, counts_for = soln
+    assert schedule[0] == []
+    assert schedule[1] == ['CIS-160']
+    assert schedule[2] == ['CIS-262']
+
+    assert counts_for['CIS-160'] == [(0, c160.base_requirement)]
+    assert counts_for['CIS-262'] == [(0, c262.base_requirement)]
+
+
+def test_multi_course_requirement_nested_1(sample_courses_info: Sequence[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        min_courses_per_semester=0,
+        max_courses_per_semester=1,
+        requirement_blocks=[
+            [Requirement.any([
+                Requirement.all([
+                    c120 := Requirement.base(courses=['CIS-120']),
+                    c240 := Requirement.base(courses=['CIS-240']),
+                ]),
+                Requirement.all([
+                    Requirement.base(courses=['CIS-160']),
+                    Requirement.base(courses=['CIS-262']),
+                ]),
+            ])],
+        ],
+        max_double_counts=defaultdict(lambda: None),
+        cannot_triple_count=set(),
+    )
+    course_requests = [
+        CourseRequest('CIS-120', 1)
+    ]
+
+    assert (soln := generate_schedule(sample_courses_info, course_requests, [], params))
+    schedule, counts_for = soln
+    assert schedule[0] == []
+    assert schedule[1] == ['CIS-120']
+    assert schedule[2] == ['CIS-240']
+
+    assert counts_for['CIS-120'] == [(0, c120.base_requirement)]
+    assert counts_for['CIS-240'] == [(0, c240.base_requirement)]
+
+
+def test_multi_course_requirement_nested_2(sample_courses_info: Sequence[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        min_courses_per_semester=0,
+        max_courses_per_semester=1,
+        requirement_blocks=[
+            [Requirement.any([
+                Requirement.all([
+                    Requirement.base(courses=['CIS-120']),
+                    Requirement.base(courses=['CIS-240']),
+                ]),
+                Requirement.all([
+                    c160 := Requirement.base(courses=['CIS-160']),
+                    c262 := Requirement.base(courses=['CIS-262']),
+                ]),
+            ])],
+        ],
+        max_double_counts=defaultdict(lambda: None),
+        cannot_triple_count=set(),
+    )
+    course_requests = [
+        CourseRequest('CIS-160', 1)
+    ]
+
+    assert (soln := generate_schedule(sample_courses_info, course_requests, [], params))
+    schedule, counts_for = soln
+    assert schedule[0] == []
+    assert schedule[1] == ['CIS-160']
+    assert schedule[2] == ['CIS-262']
+
+    assert counts_for['CIS-160'] == [(0, c160.base_requirement)]
+    assert counts_for['CIS-262'] == [(0, c262.base_requirement)]
 
 
 # TODO: left to test

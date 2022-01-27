@@ -1,4 +1,4 @@
-from cp2_types import BaseRequirement, Requirement, RequirementBlock
+from cp2_types import Requirement, RequirementBlock
 
 # 40 CU CIS BSE
 CIS_BSE: RequirementBlock = [

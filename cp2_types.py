@@ -149,7 +149,7 @@ class Requirement:
 
         self.is_multi_requirement = (base_requirement is None)
         self._base_requirement: Optional[BaseRequirement] = base_requirement
-        self.multi_requirements: List[Requirement] = (multi_requirements or [])
+        self.multi_requirements: list[Requirement] = (multi_requirements or [])
         self.min_satisfied_reqs = min_satisfied_reqs
         self.nickname = nickname
 
@@ -170,12 +170,19 @@ class Requirement:
         return Requirement(base_requirement=BaseRequirement(**kwargs))
 
     @classmethod
-    def all(cls, base_requirements: List[BaseRequirement], nickname=''):
+    def all(cls, sub_requirements: list, nickname=''):
         return Requirement(
             nickname=nickname,
-            multi_requirements=[
-                Requirement(base_requirement=br) for br in base_requirements
-            ]
+            min_satisfied_reqs=len(sub_requirements),
+            multi_requirements=sub_requirements
+        )
+    
+    @classmethod
+    def any(cls, sub_requirements: list, nickname=''):
+        return Requirement(
+            nickname=nickname,
+            min_satisfied_reqs=1,
+            multi_requirements=sub_requirements
         )
 
     @property

@@ -26,9 +26,9 @@ def sample_courses_info() -> list[CourseInfo]:
                 }
             ],
             'rate_offered': {
-                Semester.FALL: 1,
-                Semester.SPRING: 1,
-                Semester.SUMMER: 1,
+                Semester.FALL.value: 1,
+                Semester.SPRING.value: 1,
+                Semester.SUMMER.value: 1,
             },
             'crosslistings': [],
             'sections': [],
@@ -52,9 +52,9 @@ def sample_courses_info() -> list[CourseInfo]:
                 }
             ],
             'rate_offered': {
-                Semester.FALL: 1,
-                Semester.SPRING: 1,
-                Semester.SUMMER: 1,
+                Semester.FALL.value: 1,
+                Semester.SPRING.value: 1,
+                Semester.SUMMER.value: 1,
             },
             'crosslistings': [],
             'sections': [],
@@ -78,9 +78,35 @@ def sample_courses_info() -> list[CourseInfo]:
                 }
             ],
             'rate_offered': {
-                Semester.FALL: 1,
-                Semester.SPRING: 1,
-                Semester.SUMMER: 1,
+                Semester.FALL.value: 1,
+                Semester.SPRING.value: 1,
+                Semester.SUMMER.value: 1,
+            },
+            'crosslistings': [],
+            'sections': [],
+            'course_quality': None,
+            'instructor_quality': None,
+            'difficulty': None,
+            'work_required': None,
+        },
+        {
+            'id': 'CIS-240',
+            'title': 'Computer Organization and Design',
+            'semester': '2022A',
+            'prerequisites': [['CIS-120']],
+            'requirements': [
+                {
+                    'id': 'ENG@SEAS',
+                    'code': 'ENG',
+                    'school': 'SEAS',
+                    'semester': '2022A',
+                    'name': 'Engineering'
+                }
+            ],
+            'rate_offered': {
+                Semester.FALL.value: 1,
+                Semester.SPRING.value: 1,
+                Semester.SUMMER.value: 1,
             },
             'crosslistings': [],
             'sections': [],
@@ -104,9 +130,9 @@ def sample_courses_info() -> list[CourseInfo]:
                 }
             ],
             'rate_offered': {
-                Semester.FALL: 1,
-                Semester.SPRING: 1,
-                Semester.SUMMER: 1,
+                Semester.FALL.value: 1,
+                Semester.SPRING.value: 1,
+                Semester.SUMMER.value: 1,
             },
             'crosslistings': [],
             'sections': [],
@@ -130,9 +156,9 @@ def sample_courses_info() -> list[CourseInfo]:
                 }
             ],
             'rate_offered': {
-                Semester.FALL: 1,
-                Semester.SPRING: 1,
-                Semester.SUMMER: 1,
+                Semester.FALL.value: 1,
+                Semester.SPRING.value: 1,
+                Semester.SUMMER.value: 1,
             },
             'crosslistings': [],
             'sections': [],
@@ -170,9 +196,9 @@ def sample_courses_info() -> list[CourseInfo]:
                 }
             ],
             'rate_offered': {
-                Semester.FALL: 1,
-                Semester.SPRING: 1,
-                Semester.SUMMER: 1,
+                Semester.FALL.value: 1,
+                Semester.SPRING.value: 1,
+                Semester.SUMMER.value: 1,
             },
             'crosslistings': [],
             'sections': [],
@@ -187,9 +213,9 @@ def sample_courses_info() -> list[CourseInfo]:
             'semester': '2022A',
             'prerequisites': [['CIS-160']],
             'rate_offered': {
-                Semester.FALL: 1,
-                Semester.SPRING: 0,
-                Semester.SUMMER: 0,
+                Semester.FALL.value: 1,
+                Semester.SPRING.value: 0,
+                Semester.SUMMER.value: 0,
             },
             'course_quality': 2.84,
             'instructor_quality': 3.141,

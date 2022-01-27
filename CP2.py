@@ -58,7 +58,7 @@ completed_courses: list[CompletedCourse] = [
     CompletedCourse('CIS-121', 2, []),
     CompletedCourse('CIS-262', 2, []),
     CompletedCourse('PHYS-151', 2, []),
-    CompletedCourse('WRIT-025', 2, [(block_idx(SEAS_WRIT), 0), (block_idx(CIS_BSE), 30)]),
+    CompletedCourse('WRIT-025', 2, [SEAS_WRIT[0].base_requirement.uid, CIS_BSE[30].base_requirement.uid]),
     # sophmore fall
     CompletedCourse('CIS-240', 3, []),
     CompletedCourse('NETS-412', 3, []),
@@ -68,9 +68,9 @@ completed_courses: list[CompletedCourse] = [
     CompletedCourse('MATH-240', 3, []),
     # sophomore spring
     CompletedCourse('CIS-320', 4, []),
-    CompletedCourse('CIS-519', 4, [(block_idx(CIS_BSE), 10), (block_idx(CIS_MSE), 2)]),
+    CompletedCourse('CIS-519', 4, [CIS_BSE[10].base_requirement.uid, CIS_MSE[2].base_requirement.uid]),
     CompletedCourse('CIS-545', 4, []),
-    CompletedCourse('MATH-514', 4, [(block_idx(CIS_BSE), 18), (block_idx(CIS_MSE), 7)]),
+    CompletedCourse('MATH-514', 4, [CIS_BSE[18].base_requirement.uid, CIS_MSE[7].base_requirement.uid]),
     CompletedCourse('EAS-203', 4, []),
     # junior fall
     CompletedCourse('CIS-380', 5, []),
@@ -82,7 +82,7 @@ completed_courses: list[CompletedCourse] = [
     # junior spring
     # CompletedCourse('CIS-341', 6, []),
     # CompletedCourse('CIS-471', 6, []),
-    # CompletedCourse('CIS-559', 6, [(block_idx(CIS_BSE), 12), (block_idx(CIS_MSE), 5)]),
+    # CompletedCourse('CIS-559', 6, [CIS_BSE[12].base_requirement.uid, CIS_MSE[5].base_requirement.uid]),
     # CompletedCourse('PHIL-414', 6, []),
     # CompletedCourse('FNAR-340', 6, []),
     # # senior fall

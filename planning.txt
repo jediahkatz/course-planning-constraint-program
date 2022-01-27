@@ -24,7 +24,7 @@ Requirment =
 maybe we can constrain recursively like:
 - satisfied[SingleReq r]       <-> sum ( counts_for[c, r] for c in courses ) == 1
 - satisfied[MultiReq k reqs]   <-> sum ( satisfied[r] for r in reqs ) >= k
-- sum ( satisfied[r] == 1 for r in all_requirements )
+- for each top level Req r:          satisfied[r] == 1
 
 plus redundant:
 - for each top-level SingleReq r:    sum ( counts_for[c, r] for c in courses ) == 1

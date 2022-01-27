@@ -5,6 +5,7 @@ from cp2_types import CompletedCourse, CourseInfo, CourseRequest, ScheduleParams
 from solver import generate_schedule
 import pytest
 
+
 def test_empty(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
@@ -413,8 +414,8 @@ def test_double_count(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[
-            [Requirement.base(categories=['MATH@SEAS'])],
-            [Requirement.base(categories=['FGE@WH'])],
+            [math := Requirement.base(categories=['MATH@SEAS'])],
+            [fge := Requirement.base(categories=['FGE@WH'])],
         ],
         # Can double count once
         max_double_counts=defaultdict(lambda: 1),
@@ -431,7 +432,7 @@ def test_double_count(sample_courses_info: Sequence[CourseInfo]):
 
     assert 'MATH@SEAS' in req_ids
     assert 'FGE@WH' in req_ids
-    assert counts_for[course_id] == [(0, 0), (1, 0)]
+    assert counts_for[course_id] == [(0, math.base_requirement), (1, fge.base_requirement)]
 
 
 def test_double_count_infinite_one_semester(sample_courses_info: Sequence[CourseInfo]):
@@ -440,8 +441,14 @@ def test_double_count_infinite_one_semester(sample_courses_info: Sequence[Course
         min_courses_per_semester=0,
         max_courses_per_semester=2,
         requirement_blocks=[
-            [Requirement.base(courses=['CIS-120']), Requirement.base(courses=['CIS-160'])],
-            [Requirement.base(courses=['CIS-160']), Requirement.base(courses=['CIS-120'])],
+            [
+                c120_0 := Requirement.base(courses=['CIS-120']), 
+                c160_0 := Requirement.base(courses=['CIS-160'])
+            ],
+            [
+                c160_1 := Requirement.base(courses=['CIS-160']), 
+                c120_1 := Requirement.base(courses=['CIS-120'])
+            ],
         ],
         # Can double count infinite times
         max_double_counts=defaultdict(lambda: None),
@@ -452,8 +459,8 @@ def test_double_count_infinite_one_semester(sample_courses_info: Sequence[Course
     schedule, counts_for = soln
     assert len(schedule[0]) == 0
     assert not set(schedule[1]) ^ {'CIS-120', 'CIS-160'}
-    assert counts_for['CIS-120'] == [(0, 0), (1, 1)]
-    assert counts_for['CIS-160'] == [(0, 1), (1, 0)]
+    assert counts_for['CIS-120'] == [(0, c120_0.base_requirement), (1, c120_1.base_requirement)]
+    assert counts_for['CIS-160'] == [(0, c160_0.base_requirement), (1, c160_1.base_requirement)]
 
 
 def test_double_count_infinite_multiple_semesters(sample_courses_info: Sequence[CourseInfo]):
@@ -462,8 +469,14 @@ def test_double_count_infinite_multiple_semesters(sample_courses_info: Sequence[
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[
-            [Requirement.base(courses=['CIS-160']), Requirement.base(courses=['CIS-262'])],
-            [Requirement.base(courses=['CIS-262']), Requirement.base(courses=['CIS-160'])],
+            [
+                c160_0 := Requirement.base(courses=['CIS-160']), 
+                c262_0 := Requirement.base(courses=['CIS-262'])
+            ],
+            [
+                c262_1 := Requirement.base(courses=['CIS-262']), 
+                c160_1 := Requirement.base(courses=['CIS-160'])
+            ],
         ],
         # Can double count infinite times
         max_double_counts=defaultdict(lambda: None),
@@ -475,8 +488,8 @@ def test_double_count_infinite_multiple_semesters(sample_courses_info: Sequence[
     assert len(schedule[0]) == 0
     assert schedule[1] == ['CIS-160']
     assert schedule[2] == ['CIS-262']
-    assert counts_for['CIS-160'] == [(0, 0), (1, 1)]
-    assert counts_for['CIS-262'] == [(0, 1), (1, 0)]
+    assert counts_for['CIS-160'] == [(0, c160_0.base_requirement), (1, c160_1.base_requirement)]
+    assert counts_for['CIS-262'] == [(0, c262_0.base_requirement), (1, c262_1.base_requirement)]
 
 
 def test_no_double_count(sample_courses_info: Sequence[CourseInfo]):
@@ -521,9 +534,9 @@ def test_triple_count(sample_courses_info: Sequence[CourseInfo]):
         min_courses_per_semester=0,
         max_courses_per_semester=1,
         requirement_blocks=[
-            [Requirement.base(categories=['MATH@SEAS'])],
-            [Requirement.base(categories=['FGE@WH'])],
-            [Requirement.base(categories=['MFR@SAS'])],
+            [math := Requirement.base(categories=['MATH@SEAS'])],
+            [fge := Requirement.base(categories=['FGE@WH'])],
+            [mfr := Requirement.base(categories=['MFR@SAS'])],
         ],
         # We can triple count here since `cannot_triple_count` is empty
         max_double_counts=defaultdict(lambda: None),
@@ -534,7 +547,7 @@ def test_triple_count(sample_courses_info: Sequence[CourseInfo]):
     schedule, counts_for = soln
     assert len(schedule[0]) == 0
     assert schedule[1] == ['MATH-104']
-    assert counts_for['MATH-104'] == [(0, 0), (1, 0), (2, 0)]
+    assert counts_for['MATH-104'] == [(0, math.base_requirement), (1, fge.base_requirement), (2, mfr.base_requirement)]
 
 
 def test_cant_take_fall_course_in_spring(sample_courses_info: Sequence[CourseInfo]):
@@ -566,8 +579,8 @@ def test_can_take_fall_course_in_fall(sample_courses_info: Sequence[CourseInfo])
     )
 
     assert (soln := generate_schedule(sample_courses_info, [], [], params))
-    schedule, counts_for = soln
-    print(schedule, counts_for)
+    schedule, _ = soln
+    print(schedule, _)
     assert len(schedule[0]) == 0
     assert schedule[1] == ['CIS-160']
     assert len(schedule[2]) == 0

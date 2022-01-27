@@ -1,14 +1,13 @@
-from typing import Generic, List, Optional, TypeVar, TypedDict, NamedTuple, Tuple
+from typing import List, Optional, Type, TypedDict, NamedTuple, Tuple
 from ortools.sat.python.cp_model import IntVar
 from enum import Enum
 
 from setuptools import Require
 
 Id = str
+Uid = int
 Index = int
-VarMap1D = dict[Index, IntVar]
-VarMap2D = dict[tuple[Index, Index], IntVar]
-VarMap3D = dict[tuple[Index, Index, Index], IntVar]
+BoolVar = Type[IntVar]
 
 class CourseRequest(NamedTuple):
     course_id: Id
@@ -17,7 +16,7 @@ class CourseRequest(NamedTuple):
 class CompletedCourse(NamedTuple):
     course_id : Id
     semester: Index
-    satisfies: list[Tuple[int, int]]
+    satisfies: list[Uid]
 
 class ReqCategoryInfo(TypedDict):
     id: Id
@@ -75,8 +74,10 @@ class BaseRequirement:
 
     `allow_partial_cu`: whether this can be satisfied with 0.5cu + 0.5cu.
     """
+    uid: Uid = 0
+
     def __init__(
-        self, 
+        self,
         categories: list[Id] = [], 
         depts: list[Id] = [],
         courses: list[Id] = [],
@@ -85,8 +86,8 @@ class BaseRequirement:
         allow_partial_cu: bool = False,
         nickname: str = ''
     ):
-        if not (categories or depts or courses):
-            raise ValueError('Requirement cannot be empty!')
+        assert categories or depts or courses, 'Empty requirement!'
+
         self.categories = set(categories)
         self.depts = set(depts)
         self.courses = set(courses)
@@ -95,7 +96,10 @@ class BaseRequirement:
         self.allow_partial_cu = allow_partial_cu
         self.nickname = nickname
 
-    def __str__(self) -> str:
+        self.uid = BaseRequirement.uid
+        BaseRequirement.uid += 1
+
+    def __repr__(self) -> str:
         if self.nickname:
             return f'<{self.nickname}>'
         or_strings = [
@@ -131,6 +135,7 @@ class Requirement:
     Either a single BaseRequirement, or a set of Requirements
     such that at least k must be satisfied.
     """
+    uid: Uid = 0
 
     def __init__(
         self, 
@@ -138,17 +143,20 @@ class Requirement:
         multi_requirements = None,
         min_satisfied_reqs: int = 1,
         nickname: str = ''
-    ) -> None:
+    ):
+        assert not (multi_requirements and base_requirement), 'Can\'t have both base and multi requirements!'
+        assert min_satisfied_reqs >= 0, 'Vacuous requirement!'
+
         self.is_multi_requirement = (base_requirement is None)
         self._base_requirement: Optional[BaseRequirement] = base_requirement
         self.multi_requirements: List[Requirement] = (multi_requirements or [])
         self.min_satisfied_reqs = min_satisfied_reqs
         self.nickname = nickname
 
-        assert not (multi_requirements and base_requirement), 'Can\'t have both base and multi requirements!'
-        assert min_satisfied_reqs >= 0, 'Vacuous requirement!'
+        self.uid = Requirement.uid
+        Requirement.uid += 1
 
-    def __str__(self) -> str:
+    def __repr__(self) -> str:
         if self.nickname:
             return f'<{self.nickname}>'
 

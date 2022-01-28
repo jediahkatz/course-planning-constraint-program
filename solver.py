@@ -37,16 +37,15 @@ def generate_schedule(
         course_id_to_course[c]['credits'] for sem in schedule for c in sem
     )
     if verbose:
-        print(f'Solution found ({num_courses_taken} courses / {total_cu} cu in {num_semesters_without_precollege} semesters)')
+        print(f'Solution found ({num_courses_taken} courses / {total_cu:g} cu in {num_semesters_without_precollege} semesters)')
         print()
 
-        totcu = 0.0
         for s, semester in enumerate(schedule):
             sem_cu = sum(course_id_to_course[course_id]['credits'] for course_id in semester)
             if s == 0:
-                print(f'PRE-COLLEGE CREDITS ({len(semester)} / {sem_cu}):')
+                print(f'PRE-COLLEGE CREDITS ({len(semester)} / {sem_cu:g} cu):')
             else:
-                print(f'SEMESTER {s} ({len(semester)} / {sem_cu}):')
+                print(f'SEMESTER {s} ({len(semester)} / {sem_cu:g} cu):')
             print('------------------')
 
             for course_id in semester:
@@ -56,10 +55,9 @@ def generate_schedule(
                 ]
                 requirement_names_str = ', '.join(requirement_names) or '{}'
                 cu = course_id_to_course[course_id]['credits']
-                totcu += cu
                 # Indicate double-counted courses with a star
                 maybe_star = '*' if len(requirement_names) > 1 else ''
-                print(f'+ {cu}cu ({totcu}) | {maybe_star}{course_id} (counts_for {requirement_names_str})')
+                print(f'+ {cu:g}cu | {maybe_star}{course_id} (counts_for {requirement_names_str})')
             print()
 
     return schedule, course_id_to_requirement
@@ -68,7 +66,7 @@ def generate_schedule(
 def compute_double_counts_upper_bound(schedule_params: ScheduleParams, max_base_reqs_to_satisfy: dict[Uid, int]) -> int:
     """ 
     Compute an upper bound on the number of courses that can count for multiple requirements,
-    ignoring any actual details about the requirements.
+    by solving a relaxation of the problem without any constraints about the requirements.
     """
     model = cp_model.CpModel()
     requirement_blocks = schedule_params.requirement_blocks
@@ -333,7 +331,11 @@ class ScheduleGenerator:
         for constraint in constraints:
             constraint()
 
-    def solve(self, num_threads=8, verbose=False) -> Optional[tuple[Schedule, dict[Id, list[tuple[Index, BaseRequirement]]]]]:
+    def solve(
+        self, 
+        num_threads=8, 
+        verbose=False
+    ) -> Optional[tuple[Schedule, dict[Id, list[tuple[Index, BaseRequirement]]]]]:
         """
         Solve the model to return a schedule along with a mapping from each course Id c
         to a list of indices (b, r), indicating that course c satisfies requirement r

@@ -8,7 +8,8 @@ import json
 
 COURSES_CACHE_FILE = 'all_courses.json'
 COURSE_INFOS_CACHE_FILE = 'course_infos.json'
-COURSE_OfFER_RATES_CACHE_FILE = 'offer_rates.json'
+COURSE_OFFER_RATES_CACHE_FILE = 'offer_rates.json'
+COURSE_HISTORICAL_CREDITS_CACHE_FILE = 'historical_credits.json'
 BASE_URL = 'https://penncourseplan.com/api/base'
 LIST_COURSES_API_URL = f'{BASE_URL}/{{}}/courses/'
 REQS_API_URL = f'{BASE_URL}/current/requirements/'
@@ -59,11 +60,11 @@ def compute_course_infos(all_courses):
 
     return None
 
-""" 
+def get_top_level_operator(prereq_string: str) -> str:
+    """ 
     Pre-req parser helper
     Returns AND, OR, MIXED, or NONE as the top lvl operator of a prereq string 
-"""
-def get_top_level_operator(prereq_string: str) -> str:
+    """
     current_top_level = "NONE"
     open_bracket_count = 0
     parts = prereq_string.upper().split(' ')
@@ -80,10 +81,11 @@ def get_top_level_operator(prereq_string: str) -> str:
                 current_top_level = part
     return current_top_level
 
-""" Pre-req parser helper
-    Returns 'DEPT 123' -> [DEPT-123] and '(DEPT 123 OR DEPT 456)' -> [DEPT-123, DEPT-456]
-"""
 def get_individual_prereq(prereq_string: str) -> Optional[list[str]]:
+    """ 
+    Pre-req parser helper
+    Returns 'DEPT 123' -> [DEPT-123] and '(DEPT 123 OR DEPT 456)' -> [DEPT-123, DEPT-456]
+    """
     if 'AND' in prereq_string:
         # 3-level operator not supported
         return None
@@ -98,12 +100,12 @@ def get_individual_prereq(prereq_string: str) -> Optional[list[str]]:
         individual_prereq.append(f'{dept_code[0]}-{dept_code[1]}')
     return individual_prereq
 
-""" 
+def parse_prerequisites(all_courses: list[dict]) -> list[CourseInfo]:
+    """ 
     Pre-req parser
     Course prereqs set as an 2D-array: [[Dept-123, Dept-456], [Dept-789]]
     interpreted as: (Dept-123 OR Dept-456) AND Dept-789               
-"""
-def parse_prerequisites(all_courses: list[dict]) -> list[CourseInfo]:
+    """
     for course in all_courses:
         prereqs_string: str = course['prerequisites']
         top_level_operator = get_top_level_operator(prereqs_string)
@@ -146,9 +148,11 @@ def parse_prerequisites(all_courses: list[dict]) -> list[CourseInfo]:
     return cast(list[CourseInfo], all_courses)
 
 def historical_offered_rate(curr_sem: str) -> dict[Id, dict[str, float]]:
-    # Look over the last 5 years to guess at which season each
-    # course is offered in. Return the fraction of semesters
-    # of each season that each course was offered.
+    """
+    Look over the last 5 years to guess at which season each
+    course is offered in. Return the fraction of semesters
+    of each season that each course was offered.
+    """
     print('Fetching historical data to see which semester courses are offered')
     HORIZON_YEARS = 5
     curr_year, curr_season = int(curr_sem[:4]), curr_sem[4]
@@ -183,6 +187,33 @@ def historical_offered_rate(curr_sem: str) -> dict[Id, dict[str, float]]:
     return course_seasons_rates
 
 
+def get_credits_from_old_sections(course_id, curr_sem) -> float:
+    """
+    For courses missing the `'sections'` key, try to look back at old
+    semesters for that data and scrape the number of credits.
+    """
+    print('Trying to get historical credits data for', course_id)
+    HORIZON_YEARS = 5
+    curr_year, curr_season = int(curr_sem[:4]), curr_sem[4]    
+    for year in range(curr_year, curr_year - HORIZON_YEARS, -1):
+        for season in Semester:
+            if year == curr_year and season > curr_season:
+                continue
+
+            res = requests.get(GET_COURSE_API.format(course_id))
+            if res.status_code == 200:
+                old_course = json.loads(res.text)
+                
+                if credits := next((
+                        cu for section in old_course.get('sections', []) 
+                        if (cu := section['credits']) > 0
+                    ), 
+                    0
+                ):
+                    return credits
+    return 0
+                
+
 # TODO: deduplicate the entries
 def fetch_course_data() -> list[CourseInfo]:
     """ Fetch a list of each course's information from the PennCourses API. """
@@ -201,8 +232,20 @@ def fetch_course_data() -> list[CourseInfo]:
     )
     curr_sem = course_infos[0]['semester']
     course_seasons_rates = get_cached_value(
-        COURSE_OfFER_RATES_CACHE_FILE,
+        COURSE_OFFER_RATES_CACHE_FILE,
         lambda: historical_offered_rate(curr_sem)
+    )
+    course_historical_credits = get_cached_value(
+        COURSE_HISTORICAL_CREDITS_CACHE_FILE, 
+        lambda: {
+            course['id']: get_credits_from_old_sections(course['id'], curr_sem)
+            for course in course_infos
+            if 'credits' not in course 
+            and not course.get('sections')
+            # TODO: lots of courses with no data, haven't been taught lately...
+            # will have to figure out how to handle them
+            and course['title']
+        }
     )
     for course in course_infos:
         course['rate_offered'] = course_seasons_rates.get(
@@ -210,9 +253,15 @@ def fetch_course_data() -> list[CourseInfo]:
         )
         # assuming CU aren't split between e.g. lecture and lab (but I think that's true)
         if 'credits' not in course:
-            course['credits'] = next(
-                (cu for section in course.get('sections', []) if (cu := section['credits']) > 0),
-                0.0
-            )
+            if course['title'] and not course.get('sections'):
+                course['credits'] = course_historical_credits[course['id']]
+                course['sections'] = []
+            else:
+                course['credits'] = next((
+                        cu for section in course.get('sections', []) 
+                        if (cu := section['credits']) > 0
+                    ),
+                    0.0
+                )
 
     return parse_prerequisites(course_infos)

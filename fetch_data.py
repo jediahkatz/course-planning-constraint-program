@@ -208,5 +208,11 @@ def fetch_course_data() -> list[CourseInfo]:
         course['rate_offered'] = course_seasons_rates.get(
             course['id'], {season.value: 0 for season in Semester}
         )
+        # assuming CU aren't split between e.g. lecture and lab (but I think that's true)
+        if 'credits' not in course:
+            course['credits'] = next(
+                (cu for section in course.get('sections', []) if (cu := section['credits']) > 0),
+                0.0
+            )
 
     return parse_prerequisites(course_infos)

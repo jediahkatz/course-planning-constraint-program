@@ -28,16 +28,25 @@ def generate_schedule(
         return None
 
     num_semesters_without_precollege = len(schedule)-1
+    courses_taken = set(course for sem in schedule for course in sem)
+    course_id_to_course: dict[Id, CourseInfo] = {
+        course['id']: course for course in all_courses if course['id'] in courses_taken
+    }
     num_courses_taken = sum(len(sem) for sem in schedule)
+    total_cu = sum(
+        course_id_to_course[c]['credits'] for sem in schedule for c in sem
+    )
     if verbose:
-        print(f'Solution found ({num_courses_taken} courses in {num_semesters_without_precollege} semesters)')
+        print(f'Solution found ({num_courses_taken} courses / {total_cu} cu in {num_semesters_without_precollege} semesters)')
         print()
 
+        totcu = 0.0
         for s, semester in enumerate(schedule):
+            sem_cu = sum(course_id_to_course[course_id]['credits'] for course_id in semester)
             if s == 0:
-                print(f'PRE-COLLEGE CREDITS ({len(semester)}):')
+                print(f'PRE-COLLEGE CREDITS ({len(semester)} / {sem_cu}):')
             else:
-                print(f'SEMESTER {s} ({len(semester)}):')
+                print(f'SEMESTER {s} ({len(semester)} / {sem_cu}):')
             print('------------------')
 
             for course_id in semester:
@@ -46,9 +55,11 @@ def generate_schedule(
                     for (_b, br) in course_id_to_requirement[course_id]
                 ]
                 requirement_names_str = ', '.join(requirement_names) or '{}'
+                cu = course_id_to_course[course_id]['credits']
+                totcu += cu
                 # Indicate double-counted courses with a star
                 maybe_star = '*' if len(requirement_names) > 1 else ''
-                print(f'+ {maybe_star}{course_id} (counts_for {requirement_names_str})')
+                print(f'+ {cu}cu ({totcu}) | {maybe_star}{course_id} (counts_for {requirement_names_str})')
             print()
 
     return schedule, course_id_to_requirement

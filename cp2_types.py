@@ -50,6 +50,7 @@ class CourseInfo(TypedDict):
     crosslistings: list[str]
     requirements: list[ReqCategoryInfo]
     sections: list[dict]
+    credits: float
 
 class BaseRequirement:
     """

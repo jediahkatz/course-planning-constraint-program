@@ -1,6 +1,5 @@
 ## in-progress:
 - write tests
-- allow OR of requirements
 - use requirements based on CUs instead of just number of courses
     - this will break some assumptions
         - e.g. that a requirement can only be satisfied by one course
@@ -25,6 +24,8 @@
     - basically just give uuids to requirement blocks
 
 ## done (reverse chrono):
+- add lower bound to quickly determine infeasiblity in problems with too many requirements
+- allow requirement groups with cardinality constraints on subrequirements
 - handle courses only offered in fall/spring
 - user can request to take class in any semester
 - allow triple counting for some requirement blocks (e.g minors)

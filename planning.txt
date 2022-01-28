@@ -1,5 +1,27 @@
 # warning: this info may be out of date and is not meant to document behavior
 
+> proof of inequality for total number of courses taken
+
+let C be the set of all courses that count for any requirement
+let Ci be the set of all courses that count for the ith block
+C = C1 u C2 u ... u Cn
+
+by PIE:
+|C| = 
+    |C1| + |C2| + ... + |Cn|    # = total number of requirements, since |Ci| = number of requirements in ith block (until we allow 0.5cu)
+    - |Ci ^ Cj| for all i < j   # = total number of pairwise counts, since |Ci ^ Cj| = number of requirements that count across blocks i and j
+    + ...
+
+so we can say total number of courses taken >= min number of requirements - max number of pairwise counts
+but we can actually do better than this. 
+
+by PIE again (recursively):
+|C| =
+    |C1| + |C2| + ... + |Cn|
+    - | Union (Ci ^ Cj for all i < j) |   # = total number of courses that count for multiple requirements
+
+we can get a tighter bound on this than on the total number of pairwise counts
+
 > feature: allow or of requirements
 - may require big overhaul/refactor of Requirements and RequirementBlocks
 - issue: if we have (course1 and course2) or (course3 and course4), this

@@ -92,7 +92,91 @@ MATH_MINOR: RequirementBlock = [
     Requirement.base(courses=['MATH-312', 'MATH-312', 'MATH-314', 'MATH-350', 'MATH-370', 'MATH-502']),
     *([Requirement.base(depts=['MATH'], min_number=202) for _ in range(2)])
 ]
-# STAT_MINOR: RequirementBlock = [
-#     Requirement(courses=['MATH-114', 'MATH-115']),
-#     Requirement(courses=['MATH-114', 'MATH-115']),
-# ]
+_STAT_ELECTIVE_COURSES = [
+    'STAT-405', 'STAT-410', 'STAT-422', 'STAT-432', 'STAT-433', 'STAT-435',
+    'STAT-535', 'STAT-711', 'STAT-442', 'STAT-470', 'STAT-503', 'STAT-471',
+    'STAT-571', 'STAT-474', 'STAT-974', 'STAT-475', 'STAT-476', 'STAT-477',
+    'STAT-481', 'STAT-581', 'STAT-490', 'STAT-590', 'STAT-515', 'STAT-520',
+    'STAT-521', 'STAT-531', 'STAT-542', 'STAT-930', 'STAT-931', 'STAT-961',
+    'ECON-221', 'ECON-222', 'ECON-244', 'MKTG-309', 'MKTG-809', 'OIDD-930',
+    'CIS-545'
+]
+STAT_MINOR: RequirementBlock = [
+    Requirement.base(courses=['MATH-114', 'MATH-115']),
+    Requirement.any([
+        # Introductory sequence of STAT 430-431 + 4 electives
+        Requirement.all([
+            Requirement.base(courses=['STAT-430']),
+            Requirement.base(courses=['STAT-431']),
+            *([
+                Requirement.base(courses=_STAT_ELECTIVE_COURSES, nickname='STAT') 
+                for _ in range(4)
+            ])
+        ]),
+        # Other introductory sequence + STAT 430 + 3 electives
+        Requirement.all([
+            Requirement.base(courses=['STAT-430']),
+            Requirement.any([
+                Requirement.all([
+                    Requirement.base(courses=['STAT-101']),
+                    Requirement.base(courses=['STAT-102']),
+                ]),
+                Requirement.all([
+                    Requirement.base(courses=['STAT-111']),
+                    Requirement.base(courses=['STAT-112']),
+                ]),
+            ]),
+            *([
+                Requirement.base(courses=_STAT_ELECTIVE_COURSES, nickname='STAT') 
+                for _ in range(3)
+            ])
+        ]),
+    ])
+]
+_DATS_MINOR_CATEGORIES = [
+    # Data-Centric Programming
+    ['CIS-105', 'ENGR-105', 'OIDD-311', 'STAT-405', 'STAT-470', 'ESE-305'],
+    # Statistics
+    ['EAS-205', 'CIS-261', 'ESE-301', 'BIOL-446', 'STAT-430', 'STAT-476'],
+    # Data Pipeline
+    ['CIS-455', 'CIS-555', 'CIS-450', 'CIS-550', 'NETS-213', 'OIDD-105', 'STAT-475'],
+    # Data Analysis
+    [
+        'CIS-419', 'CIS-519', 'CIS-421', 'CIS-520', 'MKTG-309', 'OIDD-410',
+        'STAT-422', 'STAT-435', 'STAT-471', 'STAT-474', 'STAT-520'
+    ],
+    # Modeling
+    ['NETS-312', 'MKTG-271', 'OIDD-325', 'OIDD-353', 'STAT-433', 'STAT-436']
+
+] 
+DATS_MINOR: RequirementBlock = [
+    Requirement.base(courses=['CIS-120']),
+    Requirement.base(courses=['CIS-419', 'CIS-519', 'CIS-520', 'STAT-471']),
+    Requirement.base(courses=['CIS-545', 'NETS-212']),
+    Requirement.base(courses=['ENM-321', 'ESE-402', 'STAT-431']),
+    Requirement(
+        min_satisfied_reqs=2,
+        multi_requirements=[
+            Requirement.base(
+                courses=_DATS_MINOR_CATEGORIES[0], 
+                nickname="Data-Centric Programming"
+            ),
+            Requirement.base(
+                courses=_DATS_MINOR_CATEGORIES[1], 
+                nickname="Statistics"
+            ),
+            Requirement.base(
+                courses=_DATS_MINOR_CATEGORIES[2], 
+                nickname="Data Pipeline"
+            ),
+            Requirement.base(
+                courses=_DATS_MINOR_CATEGORIES[3], 
+                nickname="Data Analysis"
+            ),
+            Requirement.base(
+                courses=_DATS_MINOR_CATEGORIES[4], 
+                nickname="Modeling"
+            ),
+        ]
+    )
+]

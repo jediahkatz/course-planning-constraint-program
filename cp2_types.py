@@ -14,7 +14,7 @@ class CourseRequest(NamedTuple):
     semester: Optional[Index]
 
 class CompletedCourse(NamedTuple):
-    course_id : Id
+    course_id: Id
     semester: Index
     satisfies: list[Uid]
 

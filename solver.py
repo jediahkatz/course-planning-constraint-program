@@ -1,4 +1,5 @@
 from collections import defaultdict
+from tkinter.font import BOLD
 from typing import Optional, Sequence
 from ortools.sat.python import cp_model
 from cp2_types import (
@@ -53,6 +54,64 @@ def generate_schedule(
     return schedule, course_id_to_requirement
 
 
+def compute_double_counts_upper_bound(schedule_params: ScheduleParams, max_base_reqs_to_satisfy: dict[Uid, int]) -> int:
+    """ 
+    Compute an upper bound on the number of courses that can count for multiple requirements,
+    ignoring any actual details about the requirements.
+    """
+    model = cp_model.CpModel()
+    requirement_blocks = schedule_params.requirement_blocks
+
+    # Enforce max double counting between each pair of blocks
+    num_double_counts_between: dict[tuple[Index, Index], cp_model.IntVar] = {}
+    for b1 in range(len(requirement_blocks)):
+        for b2 in range(b1+1, len(requirement_blocks)):
+            num_double_counts_between[b1, b2] = model.NewIntVar(0, schedule_params.max_double_counts[b1, b2], '')
+
+    max_total_base_reqs = 0
+    max_base_reqs_in_block: dict[Index, int] = {}
+    for b, block in enumerate(requirement_blocks):
+        max_base_reqs_in_block[b] = sum(max_base_reqs_to_satisfy[req.uid] for req in block)
+        max_total_base_reqs += max_base_reqs_in_block[b]
+
+    counts_for: dict[tuple[Index, Index], BoolVar] = {}
+    for b, block in enumerate(requirement_blocks):        
+        for c in range(max_total_base_reqs):
+            counts_for[c, b] = model.NewBoolVar('')
+        
+        # All requirements are satisfied in each block
+        model.Add(
+            sum(counts_for[c, b] for c in range(max_total_base_reqs)) == max_base_reqs_in_block[b]
+        )
+
+    for b1 in range(len(requirement_blocks)):
+        for b2 in range(b1+1, len(requirement_blocks)):    
+            double_counts_boolvars = []
+            for c in range(max_total_base_reqs):
+                double_counts = model.NewBoolVar('')
+                double_counts_boolvars.append(double_counts)
+                # cf[c, b1] & cf[c, b2] => dc
+                model.AddBoolOr([counts_for[c, b1].Not(), counts_for[c, b2].Not(), double_counts])
+                # dc => cf[c, b1] & cf[c, b2]
+                model.AddImplication(double_counts, counts_for[c, b1])
+                model.AddImplication(double_counts, counts_for[c, b2])
+
+            model.Add(num_double_counts_between[b1, b2] == sum(double_counts_boolvars))
+
+    course_double_counts: dict[Index, BoolVar] = {}
+    for c in range(max_total_base_reqs):
+        course_double_counts[c] = model.NewBoolVar('')
+        model.Add(sum(counts_for[c, b] for b in range(len(requirement_blocks))) >= 2).OnlyEnforceIf(course_double_counts[c])
+        model.Add(sum(counts_for[c, b] for b in range(len(requirement_blocks))) <= 1).OnlyEnforceIf(course_double_counts[c].Not())
+
+    # Maximize the total number of courses that count for multiple requirements
+    model.Maximize(sum(course_double_counts.values()))
+
+    solver = cp_model.CpSolver()
+    assert solver.Solve(model) == cp_model.OPTIMAL
+    return int(solver.ObjectiveValue())
+
+
 class ScheduleGenerator:
     """
     Class that handles construction and solving of a CP model to generate a schedule.
@@ -86,8 +145,11 @@ class ScheduleGenerator:
             `base_requirements_of_block[b]` contains a list of all BaseRequirements in block b's subtree.
 
         `base_requirements_lower_bound: int`
-            The minimum possible number of BaseRequirements that must be satisfied, assuming each Requirement
-            is satisfied using its k smallest sub-requirements.
+            A lower bound on the numebr of BaseRequirements that must be satisfied, assuming each
+            Requirement is satisfied using its k smallest sub-requirements.
+
+        `double_counting_courses_upper_bound: int`
+            An upper bound on the number of courses that can count for multiple requirements.
 
         `last_completed_sem`: Index
             The last semester that was already completed.
@@ -100,6 +162,7 @@ class ScheduleGenerator:
         
         `semester_indices_in_future: Sequence[Index]`
             A sequence of all semesters starting from the first semester that hasn't been completed yet.
+
 
         ===== MODEL =====
 
@@ -140,11 +203,7 @@ class ScheduleGenerator:
         schedule_params: ScheduleParams,
     ) -> None:
         self.model = cp_model.CpModel()
-        self.course_id_to_course = {
-            c['id']: c for c in all_courses
-        }
-        self.all_courses = self.course_id_to_course.values()
-        self.all_course_ids = self.course_id_to_course.keys()
+
         self.requirement_blocks = schedule_params.requirement_blocks
         self.requirement_block_indices = range(len(schedule_params.requirement_blocks))
         # DFS on the requirements tree
@@ -168,18 +227,49 @@ class ScheduleGenerator:
             if req.is_multi_requirement:
                 to_visit.extend(req.multi_requirements)
             else:
+                # decide what TODO about this
+                # for course_id in req.base_requirement.courses:
+                #     # Make sure all courses that appear in some requirement are in our set of courses
+                #     assert course_id in set(c['id'] for c in all_courses), f'Missing course: {course_id}'
                 self.base_requirements_of_block[-1].append(req.base_requirement)
                 self.all_base_requirements.append(req.base_requirement)
 
+        # optimization to make the model smaller:
+        # only need to consider courses that satisfy at least one of our requirements
+        # TODO: may also need courses that are prerequisites for courses that satisfy 
+        requested_and_completed_ids = set(
+            [request.course_id for request in course_requests] + [completed.course_id for completed in completed_courses]
+        )
+        all_courses = [
+            course for course in all_courses
+            if course['id'] in requested_and_completed_ids or any(
+                br.satisfied_by_course(course)
+                for br in self.all_base_requirements
+            )
+        ]
+
+        self.course_id_to_course = {
+            c['id']: c for c in all_courses
+        }
+        self.all_courses = self.course_id_to_course.values()
+        self.all_course_ids = self.course_id_to_course.keys()
+
         # Use dynamic programming
         min_base_requirements_to_satisfy: dict[Uid, int] = {}
+        max_base_requirements_to_satisfy: dict[Uid, int] = {}
         for req in reversed(self.all_requirements):
             if not req.is_multi_requirement:
                 min_base_requirements_to_satisfy[req.uid] = 1
+                max_base_requirements_to_satisfy[req.uid] = 1
             else:
                 min_base_requirements_to_satisfy[req.uid] = sum(sorted(
                     min_base_requirements_to_satisfy[subreq.uid] for subreq in req.multi_requirements
                 )[:req.min_satisfied_reqs])
+                max_base_requirements_to_satisfy[req.uid] = sum(sorted(
+                    (max_base_requirements_to_satisfy[subreq.uid] for subreq in req.multi_requirements),
+                    reverse=True
+                )[:req.min_satisfied_reqs])
+
         self.base_requirements_lower_bound = sum(
             min_base_requirements_to_satisfy[req.uid] for block in self.requirement_blocks for req in block
         )
@@ -188,6 +278,7 @@ class ScheduleGenerator:
         self.completed_courses = completed_courses
         self.schedule_params = schedule_params
         self.last_completed_sem = max([course.semester for course in self.completed_courses], default=0)
+
         # Clean schedule_params.max_double_counts entries that are None (i.e., no limit)
         block_index_pairs = [
             (b1, b2) 
@@ -196,10 +287,13 @@ class ScheduleGenerator:
         ]
         for b1, b2 in block_index_pairs:
             if schedule_params.max_double_counts[b1, b2] is None:
-                # If we have unlimited double counts, we can upper bound by the smaller block size
+                # If we have unlimited double counts, we can upper bound the number of double counts with
+                # an upper bound on the number of BaseRequirements in either block (whichever is smaller)
                 requirement_blocks = self.schedule_params.requirement_blocks
                 min_block_size = min(len(requirement_blocks[b1]), len(requirement_blocks[b2]))
                 schedule_params.max_double_counts[b1, b2] = min_block_size
+
+        self.double_counting_courses_upper_bound = compute_double_counts_upper_bound(schedule_params, max_base_requirements_to_satisfy)
 
         self.semester_indices = range(1, schedule_params.num_semesters+1)
         self.semester_indices_with_precollege = range(schedule_params.num_semesters+1)
@@ -571,8 +665,11 @@ class ScheduleGenerator:
         model.Add(
             self.num_courses_taken == sum(self.takes_course[c] for c in self.all_course_ids)
         )
+        print(
+            f'{num_courses_ub} >= num_courses_taken >= {self.base_requirements_lower_bound} - {self.double_counting_courses_upper_bound}'
+        )
         model.Add(
-            self.num_courses_taken >= self.base_requirements_lower_bound - self.num_double_counts
+            self.num_courses_taken >= (self.base_requirements_lower_bound - self.double_counting_courses_upper_bound)
         )
     
     def take_completed_courses(self) -> None:

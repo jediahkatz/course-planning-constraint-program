@@ -1,10 +1,11 @@
 # Idea: schedule generator, works like color palette generator (coolors.co)
 # Later can expand to 4yr plan
 
+from collections import defaultdict
 from typing import Optional
 
 from cp2_types import CourseRequest, CompletedCourse, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
-from requirement_blocks import CIS_BSE, CIS_MSE, MATH_MINOR, SEAS_WRIT
+from requirement_blocks import CIS_BSE, SEAS_WRIT, CIS_MSE, MATH_MINOR, STAT_MINOR, DATS_MINOR
 from fetch_data import fetch_course_data
 from solver import generate_schedule
 # from pdf_parse import convert_to_images, write_output_txt, get_completed_courses
@@ -17,17 +18,13 @@ ALL_REQUIREMENT_BLOCKS: list[RequirementBlock] = [
     CIS_BSE,
     CIS_MSE,
     SEAS_WRIT,
-    MATH_MINOR,
+    # MATH_MINOR,
+    DATS_MINOR,
 ]
 block_idx = lambda block: {tuple(block): b for b, block in enumerate(ALL_REQUIREMENT_BLOCKS)}[tuple(block)]
-MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = {
+MAX_DOUBLE_COUNTING: dict[tuple[Index, Index], Optional[int]] = defaultdict(lambda: None, {
     (block_idx(CIS_BSE), block_idx(CIS_MSE)): 3,
-    (block_idx(CIS_BSE), block_idx(SEAS_WRIT)): None,
-    (block_idx(CIS_MSE), block_idx(SEAS_WRIT)): 0,
-    (block_idx(CIS_BSE), block_idx(MATH_MINOR)): None,
-    (block_idx(CIS_MSE), block_idx(MATH_MINOR)): None,
-    (block_idx(SEAS_WRIT), block_idx(MATH_MINOR)): 0,
-}
+})
 CANNOT_TRIPLE_COUNT: set[Index] = set([
     block_idx(CIS_BSE),
     block_idx(CIS_MSE),
@@ -42,7 +39,7 @@ REQUESTED_COURSE_IDS = set(
     course_id for course_id, _ in COURSE_REQUESTS
 )
 completed_courses: list[CompletedCourse] = [
-    # AP credits
+    # AP nor 
     CompletedCourse('CIS-110', 0, []),
     CompletedCourse('EAS-091', 0, []),
     CompletedCourse('MATH-104', 0, []),
@@ -68,18 +65,18 @@ completed_courses: list[CompletedCourse] = [
     CompletedCourse('MATH-240', 3, []),
     # sophomore spring
     CompletedCourse('CIS-320', 4, []),
-    CompletedCourse('CIS-519', 4, [CIS_BSE[10].base_requirement.uid, CIS_MSE[2].base_requirement.uid]),
+    CompletedCourse('CIS-519', 4, [CIS_BSE[10].base_requirement.uid, CIS_MSE[2].base_requirement.uid, DATS_MINOR[1].base_requirement.uid]),
     CompletedCourse('CIS-545', 4, []),
     CompletedCourse('MATH-514', 4, [CIS_BSE[18].base_requirement.uid, CIS_MSE[7].base_requirement.uid]),
     CompletedCourse('EAS-203', 4, []),
-    # junior fall
+    # # junior fall
     CompletedCourse('CIS-380', 5, []),
     CompletedCourse('CIS-677', 5, []),
     CompletedCourse('CIS-552', 5, []),
     CompletedCourse('CIMS-103', 5, []),
     CompletedCourse('STSC-278', 5, []),
     CompletedCourse('MATH-241', 5, []),
-    # junior spring
+    # # junior spring
     # CompletedCourse('CIS-341', 6, []),
     # CompletedCourse('CIS-471', 6, []),
     # CompletedCourse('CIS-559', 6, [CIS_BSE[12].base_requirement.uid, CIS_MSE[5].base_requirement.uid]),
@@ -94,9 +91,11 @@ completed_courses: list[CompletedCourse] = [
     # # senior spring
     # CompletedCourse('CIS-401', 8, []),
     # CompletedCourse('CIS-195', 8, []),
-    # CompletedCourse('NETS-150', 8, []),
-    # CompletedCourse('HIST-210', 8, []),
     # CompletedCourse('PSYC-266', 8, []),
+    # CompletedCourse('STAT-431', 8, []),
+    # CompletedCourse('CIS-555', 8, []),
+    # # CompletedCourse('NETS-150', 8, []),
+    # # CompletedCourse('HIST-210', 8, []),
 ]
 
 # parse pdf to get completed courses
@@ -106,14 +105,6 @@ completed_courses: list[CompletedCourse] = [
 # total_images = convert_to_images(save_to=SAVE_TO, pdf_file=PDF_FILE)
 # outfile = write_output_txt(total_images=total_images, img_file_path=SAVE_TO)
 # completed_courses = get_completed_courses(outfile)
-
-def raise_for_missing_courses(all_courses: list[CourseInfo], requirements: list[Requirement]) -> None:
-    courses_from_reqs = set(
-        course_id for req in requirements for course_id in req.base_requirement.courses
-    )
-    course_ids = set(course['id'] for course in all_courses)
-    missing_courses = courses_from_reqs.difference(course_ids)
-    assert not missing_courses, f'There are missing courses: {missing_courses}'
 
 all_courses = fetch_course_data()
 
@@ -131,20 +122,6 @@ COMPLETED_COURSE_IDS = set(
 )
 
 REQUESTED_AND_COMPLETED_IDS = COMPLETED_COURSE_IDS.union(REQUESTED_COURSE_IDS)
-
-# optimization to make the model smaller:
-# only need to consider courses that satisfy at least one of our requirements
-# TODO: may also need courses that are prerequisites for courses that satisfy 
-all_courses = [
-    course for course in all_courses
-    if course['id'] in REQUESTED_AND_COMPLETED_IDS or any(
-        req.base_requirement.satisfied_by_course(course)
-        for major in ALL_REQUIREMENT_BLOCKS
-        for req in major
-    )
-]
-
-raise_for_missing_courses(all_courses, [req for major in ALL_REQUIREMENT_BLOCKS for req in major])
 
 params = ScheduleParams(
     NUM_SEMESTERS,

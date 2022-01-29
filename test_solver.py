@@ -732,8 +732,74 @@ def test_multi_course_requirement_nested_2(sample_courses_info: Sequence[CourseI
     assert counts_for['CIS-262'] == [(0, c262.base_requirement)]
 
 
+def test_half_credits_allowed(sample_courses_info: Sequence[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=0.5,
+        requirement_blocks=[
+            [Requirement(
+                min_credits=1,
+                multi_requirements=[cis := Requirement.base(
+                    depts=['CIS'], allow_partial_cu=True
+                )]
+            )],
+        ],
+        max_double_counts=defaultdict(lambda: None),
+        cannot_triple_count=set(),
+    )
+
+    assert (soln := generate_schedule(sample_courses_info, [], [], params))
+    schedule, counts_for = soln
+    assert schedule[0] == []
+    assert set(schedule[1] + schedule[2]) == {'CIS-188', 'CIS-189'}
+
+    assert counts_for['CIS-188'] == [(0, cis.base_requirement)]
+    assert counts_for['CIS-189'] == [(0, cis.base_requirement)]
+
+
+def test_half_credits_not_allowed(sample_courses_info: Sequence[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=0.5,
+        requirement_blocks=[
+            [Requirement(
+                min_credits=1,
+                multi_requirements=[cis := Requirement.base(depts=['CIS'])]
+            )],
+        ],
+        max_double_counts=defaultdict(lambda: None),
+        cannot_triple_count=set(),
+    )
+
+    assert not generate_schedule(sample_courses_info, [], [], params)
+
+
+def can(sample_courses_info: Sequence[CourseInfo]):
+    params = ScheduleParams(
+        num_semesters=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
+        requirement_blocks=[
+            [Requirement(
+                min_credits=2,
+                multi_requirements=[Requirement.base(depts=['CIS'])]
+            )],
+        ],
+        max_double_counts=defaultdict(lambda: None),
+        cannot_triple_count=set(),
+    )
+
+    # Want to make sure the following cases can't happen:
+    # 1. We satisfy the BaseRequirement with one 1CU course, 
+    #    and then satisfy the >= 2CU requirement with half-credits
+    # 2. We satisfy the CIS elective requirement "twice" with two 1CU
+    #    courses to satisfy the >= 2CU requirement
+    assert not generate_schedule(sample_courses_info, [], [], params)
+
+
 # TODO: left to test
-# - multiple requirement blocks
 # - multiple requirements per block
 # - more complex prerequisites
 # - more complex double counting

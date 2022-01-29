@@ -398,7 +398,7 @@ class ScheduleGenerator:
             self.dont_take_cross_listed_twice
         ]
         for constraint in constraints:
-            print(constraint.__func__.__name__)
+            print(constraint.__name__)
             constraint()
 
     def solve(
@@ -513,10 +513,6 @@ class ScheduleGenerator:
                 credit_satisfied = model.NewBoolVar('')
 
                 # Satisfy minimum number of subrequirements, minimum number of credits, or both
-                if False and r0.min_satisfied_reqs > 0 and r0.min_credits > 0:
-                    model.AddImplication(self.is_satisfied[r0.uid], count_satisfied)
-                    model.AddImplication(self.is_satisfied[r0.uid], credit_satisfied)
-                    model.AddBoolOr([credit_satisfied.Not(), count_satisfied.Not(), self.is_satisfied[r0.uid].Not()])
                 if r0.min_satisfied_reqs > 0:
                     model.Add(self.is_satisfied[r0.uid] == count_satisfied)
                 if r0.min_credits > 0:
@@ -544,7 +540,9 @@ class ScheduleGenerator:
                         else:
                             to_visit.extend(curr.multi_requirements)
 
-                    scaling_coeff = 1.0 / ((r0.min_credits % 1) or 1)
+                    # Scale up by 1, 2, or 4 based on whether there are 0.25/0.5 CU courses
+                    # that could possibly count towards this requirement
+                    scaling_coeff = 4 # 1.0 / ((r0.min_credits % 1) or 1)
                     scaled_credits_expr = sum(
                         int(scaling_coeff * c['credits']) * self.counts_for[c['id'], br.uid]
                         for c in self.all_courses
@@ -559,14 +557,43 @@ class ScheduleGenerator:
 
             else:
                 br = r0.base_requirement
-                # br satisfied ==> some course counts for br
-                model.AddBoolOr(
-                    [self.is_satisfied[r0.uid].Not()]
-                    + [self.counts_for[c, br.uid] for c in self.all_course_ids]
-                )
-                # some course counts for br ==> br satisfied
-                for c in self.all_course_ids:
-                    model.AddImplication(self.counts_for[c, br.uid], self.is_satisfied[r0.uid])
+                if not br.courses and not br.allow_partial_cu:
+                    # br satisfied <==> some 1 CU course counts for br
+                    model.AddBoolOr(
+                        [self.is_satisfied[r0.uid].Not()] +
+                        [
+                            self.counts_for[c['id'], br.uid] 
+                            for c in self.all_courses 
+                            if c['credits'] == 1
+                        ]
+                    )
+                    for c in self.all_courses:
+                        if c['credits'] == 1:
+                            model.AddImplication(
+                                self.counts_for[c['id'], br.uid], 
+                                self.is_satisfied[r0.uid]
+                            )
+
+                        # No fractional CU course counts for br
+                        else:
+                            model.Add(self.counts_for[c['id'], br.uid] == 0)
+
+                else:
+                    # br satisfied <==> any course in `br.courses` counts for br
+                    # TODO: could we actually only iterate over br.courses instead of all_courses?
+                    # or will this allow other courses to count_for br randomly
+                    model.AddBoolOr(
+                        [self.is_satisfied[r0.uid].Not()] +
+                        [
+                            self.counts_for[c['id'], br.uid] 
+                            for c in self.all_courses 
+                        ]
+                    )
+                    for c in self.all_courses:
+                        model.AddImplication(
+                            self.counts_for[c['id'], br.uid], 
+                            self.is_satisfied[r0.uid]
+                        )
 
     def satisfy_all_requirements_once(self) -> None:
         """ All requirements must be satisfied (by either one 1 CU course or two 0.5 CU courses). """
@@ -577,12 +604,29 @@ class ScheduleGenerator:
                 model.Add(
                     self.is_satisfied[r.uid] == 1
                 )
-                # Redundant: Top-level BaseRequirements should be satisfied by at most 2 courses
+                # Redundant: Top-level BaseRequirements should be satisfied by at most 1 course (2 if partial allowed)
                 if not r.is_multi_requirement:
                     br = r.base_requirement
+                    max_courses_to_satisfy = 2 if br.allow_partial_cu else 1
                     model.Add(
-                        sum(self.counts_for[c, br.uid] for c in self.all_course_ids) <= 2
+                        sum(self.counts_for[c, br.uid] for c in self.all_course_ids) 
+                        <= 
+                        max_courses_to_satisfy
                     )
+
+        for br in self.all_base_requirements:
+            # Redundant: All elective BaseRequirements (i.e. where `courses` is not set)
+            # should be satisfied by at most 1 CU
+            if not br.courses:
+                scaling_coeff = 4
+                model.Add(
+                    sum(
+                        int(scaling_coeff * c['credits']) * self.counts_for[c['id'], br.uid]
+                        for c in self.all_courses
+                    )
+                    <=
+                    scaling_coeff * 1
+                )
         
     def enforce_max_credits_per_semester(self) -> None:
         """ Limit the maximum number of courses per semester based on the schedule params. """
@@ -596,7 +640,7 @@ class ScheduleGenerator:
                     for c in self.all_courses
                 )
                 <= 
-                scaling_coeff * self.schedule_params.max_credits_per_semester
+                int(scaling_coeff * self.schedule_params.max_credits_per_semester)
             )
 
     def enforce_min_credits_per_semester(self) -> None:
@@ -611,7 +655,7 @@ class ScheduleGenerator:
                     for c in self.all_courses
                 )
                 >=
-                scaling_coeff * self.schedule_params.min_credits_per_semester
+                int(scaling_coeff * self.schedule_params.min_credits_per_semester)
             )
 
     def enforce_double_counting_rules(self) -> None:
@@ -787,9 +831,6 @@ class ScheduleGenerator:
         num_semesters = self.schedule_params.num_semesters
         max_credits_per_semester = self.schedule_params.max_credits_per_semester
 
-        # note: we can actually get away without explicitly accounting for <1 CU classes here
-        # it's because 
-
         # num credits taken >= num credits taken so far + (max credits per semester * num remaining semesters)
         credits_completed = sum(
             self.course_id_to_course[c.course_id]['credits'] for c in self.completed_courses
@@ -810,11 +851,11 @@ class ScheduleGenerator:
         )
         # total number of credits >= total number of requirements - num_double_counts
         # this formula is derived from the inclusion-exclusion principle (cis160 ftw)
-        # model.Add(
-        #     self.num_credits_taken_scaled 
-        #     >= 
-        #     int(scaling_coeff * (self.total_credits_lower_bound - self.double_counting_credits_upper_bound))
-        # )
+        model.Add(
+            self.num_credits_taken_scaled 
+            >= 
+            int(scaling_coeff * (self.total_credits_lower_bound - self.double_counting_credits_upper_bound))
+        )
         
     def take_completed_courses(self) -> None:
         """ Take the courses that the student has already completed. """

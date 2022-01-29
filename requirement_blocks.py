@@ -19,6 +19,7 @@ CIS_BSE: RequirementBlock = [
         depts=['CIS', 'NETS'], 
         min_number=200,
         max_number=699,
+        allow_partial_cu=True,
         nickname="CIS Elective"
     ) for _ in range(4)]),
     # === MATH ===
@@ -34,7 +35,10 @@ CIS_BSE: RequirementBlock = [
     Requirement.base(categories=['NATSCI@SEAS']),
     # # === TODO: TECHNICAL ELECTIVES ===
     *([Requirement.base(categories=['ENG@SEAS']) for _ in range(2)]),
-    *([Requirement.base(categories=['ENG@SEAS', 'MATH@SEAS', 'NATSCI@SEAS']) for _ in range(4)]),
+    *([Requirement.base(
+        categories=['ENG@SEAS', 'MATH@SEAS', 'NATSCI@SEAS'],
+        allow_partial_cu=True,
+    ) for _ in range(4)]),
     # === GENERAL ELECTIVES ===
     Requirement.base(courses=['EAS-203']),
     *([Requirement.base(categories=['SS@SEAS', 'H@SEAS']) for _ in range(4)]),

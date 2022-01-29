@@ -241,4 +241,58 @@ def sample_courses_info() -> list[CourseInfo]:
             ],
             'sections': [],
         },
+        {
+            'id': 'CIS-188',
+            'title': 'DevOps',
+            'credits': 0.5,
+            'semester': '2022A',
+            'prerequisites': [],
+            'requirements': [
+                {
+                    'id': 'ENG@SEAS',
+                    'code': 'ENG',
+                    'school': 'SEAS',
+                    'semester': '2022A',
+                    'name': 'Engineering'
+                }
+            ],
+            'rate_offered': {
+                Semester.FALL.value: 1,
+                Semester.SPRING.value: 1,
+                Semester.SUMMER.value: 1,
+            },
+            'crosslistings': [],
+            'sections': [],
+            'course_quality': None,
+            'instructor_quality': None,
+            'difficulty': None,
+            'work_required': None,
+        },
+        {
+            'id': 'CIS-189',
+            'title': 'Solving Hard Problems in Practice',
+            'credits': 0.5,
+            'semester': '2022A',
+            'prerequisites': [],
+            'requirements': [
+                {
+                    'id': 'ENG@SEAS',
+                    'code': 'ENG',
+                    'school': 'SEAS',
+                    'semester': '2022A',
+                    'name': 'Engineering'
+                }
+            ],
+            'rate_offered': {
+                Semester.FALL.value: 1,
+                Semester.SPRING.value: 1,
+                Semester.SUMMER.value: 1,
+            },
+            'crosslistings': [],
+            'sections': [],
+            'course_quality': None,
+            'instructor_quality': None,
+            'difficulty': None,
+            'work_required': None,
+        },
     ]

@@ -59,6 +59,9 @@ class BaseRequirement:
     satisfy this requirement. If a list parameter is empty, it is
     considered unset.
 
+    If no explicit list of courses is given, then this is considered
+    an elective, and must be satisfied by <= 1 CU.
+
     Parameters:
 
     `categories`: a list of requirement categories; a course must
@@ -74,6 +77,8 @@ class BaseRequirement:
     `max_number`: an upper bound for the course number.
 
     `allow_partial_cu`: whether this can be satisfied with 0.5cu + 0.5cu.
+    If `False`, only 1CU courses can satisfy this requirement, unless `courses`
+    is specified (in which case any course from that list can satisfy).
     """
     uid: Uid = 0
 
@@ -210,8 +215,8 @@ RequirementBlock = list[Requirement]
 
 class ScheduleParams(NamedTuple):
     num_semesters: int
-    max_credits_per_semester: int
-    min_credits_per_semester: int
+    max_credits_per_semester: float
+    min_credits_per_semester: float
     requirement_blocks: list[RequirementBlock]
     # max_double_counts[block1_index, block2_index] is the max number of credits that can double count for
     # block1 and block2, where block1_idx < block_idx. 'None' entries can double count unlimited times.

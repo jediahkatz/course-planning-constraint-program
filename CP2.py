@@ -39,7 +39,7 @@ REQUESTED_COURSE_IDS = set(
     course_id for course_id, _ in COURSE_REQUESTS
 )
 completed_courses: list[CompletedCourse] = [
-    # AP nor 
+    # pre-college credit
     CompletedCourse('CIS-110', 0, []),
     CompletedCourse('EAS-091', 0, []),
     CompletedCourse('MATH-104', 0, []),
@@ -69,7 +69,7 @@ completed_courses: list[CompletedCourse] = [
     CompletedCourse('CIS-545', 4, []),
     CompletedCourse('MATH-514', 4, [CIS_BSE[18].base_requirement.uid, CIS_MSE[7].base_requirement.uid]),
     CompletedCourse('EAS-203', 4, []),
-    # # junior fall
+    # junior fall
     CompletedCourse('CIS-380', 5, []),
     CompletedCourse('CIS-677', 5, []),
     CompletedCourse('CIS-552', 5, []),
@@ -91,6 +91,7 @@ completed_courses: list[CompletedCourse] = [
     # # senior spring
     # CompletedCourse('CIS-401', 8, []),
     # CompletedCourse('CIS-195', 8, []),
+    # CompletedCourse('ESE-190', 8, []),
     # CompletedCourse('PSYC-266', 8, []),
     # CompletedCourse('STAT-431', 8, []),
     # CompletedCourse('CIS-555', 8, []),

@@ -134,24 +134,29 @@ class BaseRequirement:
 class Requirement:
     """
     Either a single BaseRequirement, or a set of Requirements
-    such that at least k must be satisfied.
+    such that at least k must be satisfied. We can also specify
+    a minimum number of CUs that must be counted towards the
+    subrequirements.
     """
     uid: Uid = 0
 
     def __init__(
-        self, 
+        self,
         base_requirement: Optional[BaseRequirement] = None, 
         multi_requirements = None,
         min_satisfied_reqs: int = 1,
+        min_credits: float = 0,
         nickname: str = ''
     ):
         assert not (multi_requirements and base_requirement), 'Can\'t have both base and multi requirements!'
-        assert min_satisfied_reqs >= 0, 'Vacuous requirement!'
+        assert min_satisfied_reqs > 0 or min_credits > 0, 'Vacuous requirement!'
+        assert min_credits % 1 in [0, 0.5, 1], 'Requirements of *.25 credits not supported!'
 
         self.is_multi_requirement = (base_requirement is None)
         self._base_requirement: Optional[BaseRequirement] = base_requirement
         self.multi_requirements: list[Requirement] = (multi_requirements or [])
         self.min_satisfied_reqs = min_satisfied_reqs
+        self.min_credits = min_credits
         self.nickname = nickname
 
         self.uid = Requirement.uid
@@ -161,17 +166,30 @@ class Requirement:
         if self.nickname:
             return f'<{self.nickname}>'
 
-        if self.is_multi_requirement: 
-            return f'(>={self.min_satisfied_reqs})[{",".join(str(r) for r in self.multi_requirements)}]'
+        if self.is_multi_requirement:
+            at_least_strs = []
+            if self.min_satisfied_reqs > 0:
+                at_least_strs.append(str(self.min_satisfied_reqs))
+            if self.min_credits > 0:
+                at_least_strs.append(f'{self.min_credits}cu')
+            return f'>=({" / ".join(at_least_strs)})[{",".join(str(r) for r in self.multi_requirements)}]'
         
         return str(self.base_requirement)
 
+    @property
+    def base_requirement(self):
+        assert not self.is_multi_requirement, 'Can\'t get base_requirement of a multi requirement!'
+        assert self._base_requirement
+        return self._base_requirement
+
     @classmethod
     def base(cls, **kwargs):
+        """ Create a new Requirement that wraps a single BaseRequirement. """
         return Requirement(base_requirement=BaseRequirement(**kwargs))
 
     @classmethod
     def all(cls, sub_requirements: list, nickname=''):
+        """ Create a new Requirement that is satisfied if any subrequirement is satisfied. """
         return Requirement(
             nickname=nickname,
             min_satisfied_reqs=len(sub_requirements),
@@ -180,27 +198,22 @@ class Requirement:
     
     @classmethod
     def any(cls, sub_requirements: list, nickname=''):
+        """ Create a new Requirement that is satisfied if all subrequirements are satisfied. """
         return Requirement(
             nickname=nickname,
             min_satisfied_reqs=1,
             multi_requirements=sub_requirements
         )
 
-    @property
-    def base_requirement(self):
-        assert not self.is_multi_requirement, 'Can\'t get base_requirement of a multi requirement!'
-        assert self._base_requirement
-        return self._base_requirement
-
 
 RequirementBlock = list[Requirement]
 
 class ScheduleParams(NamedTuple):
     num_semesters: int
-    max_courses_per_semester: int
-    min_courses_per_semester: int
+    max_credits_per_semester: int
+    min_credits_per_semester: int
     requirement_blocks: list[RequirementBlock]
-    # max_double_counts[block1_index, block2_index] is the max number of courses that can double count for
+    # max_double_counts[block1_index, block2_index] is the max number of credits that can double count for
     # block1 and block2, where block1_idx < block_idx. 'None' entries can double count unlimited times.
     max_double_counts: dict[tuple[Index, Index], Optional[int]]
     # a list of blocks such that no course can count for three of these blocks at the same time (e.g. majors)

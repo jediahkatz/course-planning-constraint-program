@@ -1,14 +1,8 @@
 ## in-progress:
 - write tests
-- use requirements based on CUs instead of just number of courses
-    - this will break some assumptions
-        - e.g. that a requirement can only be satisfied by one course
-    - will also need to fetch old data for courses that aren't currently offered
-        - ideally instead we can maintain a new database of CUs per course
-    - also this might slow things down a LOT because half-CUs can count
-        - maybe we can by-default disable them except for electives?
 
 ## todo:
+- 
 - optimize model to speed up solving time
     - reduce number of vars and constraints? 
         - e.g. don't even create variable satisfies[c, r] if course c can't satisfy requirement r
@@ -24,6 +18,7 @@
     - basically just give uuids to requirement blocks
 
 ## done (reverse chrono):
+- use requirements based on CUs instead of just number of courses
 - add lower bound to quickly determine infeasiblity in problems with too many requirements
 - allow requirement groups with cardinality constraints on subrequirements
 - handle courses only offered in fall/spring

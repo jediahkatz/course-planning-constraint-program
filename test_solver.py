@@ -10,8 +10,8 @@ import pytest
 def test_empty(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -27,8 +27,8 @@ def test_empty(sample_courses_info: Sequence[CourseInfo]):
 def test_requirement_one_course(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[[
             Requirement.base(courses=['CIS-120'])
         ]],
@@ -47,8 +47,8 @@ def test_requirement_one_course(sample_courses_info: Sequence[CourseInfo]):
 def test_requirement_one_category(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[[
             Requirement.base(categories=['MATH@SEAS'])
         ]],
@@ -70,8 +70,8 @@ def test_requirement_one_category(sample_courses_info: Sequence[CourseInfo]):
 def test_requirement_one_dept(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[[
             Requirement.base(depts=['CIS'])
         ]],
@@ -92,8 +92,8 @@ def test_requirement_one_dept(sample_courses_info: Sequence[CourseInfo]):
 def test_requirement_one_course_not_exists(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[[
             Requirement.base(courses=['CIS-420'])
         ]],
@@ -107,8 +107,8 @@ def test_requirement_one_course_not_exists(sample_courses_info: Sequence[CourseI
 def test_requirement_one_category_not_exists(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[[
             Requirement.base(categories=['FUN@SEAS'])
         ]],
@@ -122,8 +122,8 @@ def test_requirement_one_category_not_exists(sample_courses_info: Sequence[Cours
 def test_requirement_one_dept_not_exists(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[[
             Requirement.base(depts=['OMG'])
         ]],
@@ -137,8 +137,8 @@ def test_requirement_one_dept_not_exists(sample_courses_info: Sequence[CourseInf
 def test_requirement_same_course_not_allowed(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[[
             Requirement.base(courses=['CIS-120']),
             Requirement.base(courses=['CIS-120'])
@@ -153,8 +153,8 @@ def test_requirement_same_course_not_allowed(sample_courses_info: Sequence[Cours
 def test_requirement_two_courses(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[[
             Requirement.base(courses=['CIS-120']),
             Requirement.base(courses=['CIS-160'])
@@ -174,8 +174,8 @@ def test_requirement_two_courses(sample_courses_info: Sequence[CourseInfo]):
 def test_requirement_two_depts_same(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[[
             Requirement.base(depts=['CIS']),
             Requirement.base(depts=['CIS'])
@@ -199,8 +199,8 @@ def test_requirement_two_depts_same(sample_courses_info: Sequence[CourseInfo]):
 def test_requirement_two_depts_different(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[[
             Requirement.base(depts=['CIS']),
             Requirement.base(depts=['MATH'])
@@ -223,8 +223,8 @@ def test_requirement_two_depts_different(sample_courses_info: Sequence[CourseInf
 def test_more_requirements_than_slots(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[[
             Requirement.base(depts=['CIS']),
             Requirement.base(depts=['CIS']),
@@ -240,8 +240,8 @@ def test_more_requirements_than_slots(sample_courses_info: Sequence[CourseInfo])
 def test_one_course_request(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -260,8 +260,8 @@ def test_one_course_request(sample_courses_info: Sequence[CourseInfo]):
 def test_two_course_requests(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -282,8 +282,8 @@ def test_two_course_requests(sample_courses_info: Sequence[CourseInfo]):
 def test_one_course_request_any_sem(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -302,8 +302,8 @@ def test_one_course_request_any_sem(sample_courses_info: Sequence[CourseInfo]):
 def test_two_course_requests_any_sem(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -323,8 +323,8 @@ def test_two_course_requests_any_sem(sample_courses_info: Sequence[CourseInfo]):
 def test_invalid_course_request(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -340,8 +340,8 @@ def test_invalid_course_request(sample_courses_info: Sequence[CourseInfo]):
 def test_one_course_request_precollege(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[],
         # No double counting
         max_double_counts=defaultdict(int),
@@ -359,8 +359,8 @@ def test_one_course_request_precollege(sample_courses_info: Sequence[CourseInfo]
 def test_prerequisites_feasible(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[[
             Requirement.base(courses=['CIS-262']),
             Requirement.base(courses=['CIS-160']),
@@ -379,8 +379,8 @@ def test_prerequisites_feasible(sample_courses_info: Sequence[CourseInfo]):
 def test_prerequisites_infeasible(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[[
             Requirement.base(courses=['CIS-121']),
         ]],
@@ -394,8 +394,8 @@ def test_prerequisites_infeasible(sample_courses_info: Sequence[CourseInfo]):
 def test_prerequisites_requests_infeasible(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[[
             Requirement.base(courses=['CIS-262']),
         ]],
@@ -412,8 +412,8 @@ def test_prerequisites_requests_infeasible(sample_courses_info: Sequence[CourseI
 def test_double_count(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [math := Requirement.base(categories=['MATH@SEAS'])],
             [fge := Requirement.base(categories=['FGE@WH'])],
@@ -439,8 +439,8 @@ def test_double_count(sample_courses_info: Sequence[CourseInfo]):
 def test_double_count_infinite_one_semester(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=2,
+        min_credits_per_semester=0,
+        max_credits_per_semester=2,
         requirement_blocks=[
             [
                 c120_0 := Requirement.base(courses=['CIS-120']), 
@@ -467,8 +467,8 @@ def test_double_count_infinite_one_semester(sample_courses_info: Sequence[Course
 def test_double_count_infinite_multiple_semesters(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [
                 c160_0 := Requirement.base(courses=['CIS-160']), 
@@ -496,8 +496,8 @@ def test_double_count_infinite_multiple_semesters(sample_courses_info: Sequence[
 def test_no_double_count(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [Requirement.base(categories=['MATH@SEAS'])],
             [Requirement.base(categories=['FGE@WH'])],
@@ -513,8 +513,8 @@ def test_no_double_count(sample_courses_info: Sequence[CourseInfo]):
 def test_no_triple_count(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [Requirement.base(categories=['MATH@SEAS'])],
             [Requirement.base(categories=['FGE@WH'])],
@@ -532,8 +532,8 @@ def test_no_triple_count(sample_courses_info: Sequence[CourseInfo]):
 def test_triple_count(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=1,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [math := Requirement.base(categories=['MATH@SEAS'])],
             [fge := Requirement.base(categories=['FGE@WH'])],
@@ -554,8 +554,8 @@ def test_triple_count(sample_courses_info: Sequence[CourseInfo]):
 def test_cant_take_fall_course_in_spring(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [Requirement.base(courses=['CIS-261'])]
         ],
@@ -569,8 +569,8 @@ def test_cant_take_fall_course_in_spring(sample_courses_info: Sequence[CourseInf
 def test_can_take_fall_course_in_fall(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=3,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [Requirement.base(courses=['CIS-160'])],
             [Requirement.base(courses=['CIS-261'])]
@@ -591,8 +591,8 @@ def test_can_take_fall_course_in_fall(sample_courses_info: Sequence[CourseInfo])
 def test_multi_course_requirement_any(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [Requirement.any([
                 c160 := Requirement.base(courses=['CIS-160']),
@@ -615,8 +615,8 @@ def test_multi_course_requirement_any(sample_courses_info: Sequence[CourseInfo])
 def test_multi_course_requirement_all(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [Requirement.all([
                 c160 := Requirement.base(courses=['CIS-160']),
@@ -640,8 +640,8 @@ def test_multi_course_requirement_all(sample_courses_info: Sequence[CourseInfo])
 def test_multi_course_requirement_some(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [Requirement(
                 min_satisfied_reqs=2,
@@ -669,8 +669,8 @@ def test_multi_course_requirement_some(sample_courses_info: Sequence[CourseInfo]
 def test_multi_course_requirement_nested_1(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [Requirement.any([
                 Requirement.all([
@@ -703,8 +703,8 @@ def test_multi_course_requirement_nested_1(sample_courses_info: Sequence[CourseI
 def test_multi_course_requirement_nested_2(sample_courses_info: Sequence[CourseInfo]):
     params = ScheduleParams(
         num_semesters=2,
-        min_courses_per_semester=0,
-        max_courses_per_semester=1,
+        min_credits_per_semester=0,
+        max_credits_per_semester=1,
         requirement_blocks=[
             [Requirement.any([
                 Requirement.all([

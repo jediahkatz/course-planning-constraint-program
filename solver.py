@@ -1,4 +1,5 @@
 from collections import defaultdict
+from math import ceil
 from tkinter.font import BOLD
 from typing import Optional, Sequence
 from ortools.sat.python import cp_model
@@ -63,40 +64,54 @@ def generate_schedule(
     return schedule, course_id_to_requirement
 
 
-def compute_double_counts_upper_bound(schedule_params: ScheduleParams, max_base_reqs_to_satisfy: dict[Uid, int]) -> int:
+def compute_double_counts_upper_bound(schedule_params: ScheduleParams, max_credits_to_satisfy: dict[Uid, float]) -> float:
     """ 
-    Compute an upper bound on the number of courses that can count for multiple requirements,
+    Compute an upper bound on the number of credits that can count for multiple requirements,
     by solving a relaxation of the problem without any constraints about the requirements.
-    """
+    """ 
     model = cp_model.CpModel()
     requirement_blocks = schedule_params.requirement_blocks
 
+    max_total_cu = 0.0
+    max_credits_in_block: dict[Index, float] = {}
+    for b, block in enumerate(requirement_blocks):
+        max_credits_in_block[b] = sum(max_credits_to_satisfy[req.uid] for req in block)
+        max_total_cu += max_credits_in_block[b]
+
+    # Need to scale fractional values into integers if the max credits to satisfy any block is fractional
+    fractional_parts: list[float] = [
+        fractional
+        for f in max_credits_in_block.values()
+        if (fractional := f % 1) > 0
+    ]
+    scaling_coeff = int(1.0 / min(fractional_parts, default=1.0))
+    print('scaling coeff', scaling_coeff)
+
     # Enforce max double counting between each pair of blocks
+    max_double_counts: dict[tuple[Index, Index], int] = {
+        pair: scaling_coeff * (max_cu or 0) for pair, max_cu in schedule_params.max_double_counts.items()
+    }
     num_double_counts_between: dict[tuple[Index, Index], cp_model.IntVar] = {}
     for b1 in range(len(requirement_blocks)):
         for b2 in range(b1+1, len(requirement_blocks)):
-            num_double_counts_between[b1, b2] = model.NewIntVar(0, schedule_params.max_double_counts[b1, b2], '')
+            num_double_counts_between[b1, b2] = model.NewIntVar(0, max_double_counts[b1, b2], '')
 
-    max_total_base_reqs = 0
-    max_base_reqs_in_block: dict[Index, int] = {}
-    for b, block in enumerate(requirement_blocks):
-        max_base_reqs_in_block[b] = sum(max_base_reqs_to_satisfy[req.uid] for req in block)
-        max_total_base_reqs += max_base_reqs_in_block[b]
-
+    # We can basically think of each 0.25 CU as an "abstract course" unit
+    num_abstract_courses = int(scaling_coeff * max_total_cu)
     counts_for: dict[tuple[Index, Index], BoolVar] = {}
     for b, block in enumerate(requirement_blocks):        
-        for c in range(max_total_base_reqs):
+        for c in range(num_abstract_courses):
             counts_for[c, b] = model.NewBoolVar('')
         
         # All requirements are satisfied in each block
         model.Add(
-            sum(counts_for[c, b] for c in range(max_total_base_reqs)) == max_base_reqs_in_block[b]
+            sum(counts_for[c, b] for c in range(num_abstract_courses)) == int(scaling_coeff * max_credits_in_block[b])
         )
 
     for b1 in range(len(requirement_blocks)):
         for b2 in range(b1+1, len(requirement_blocks)):    
             double_counts_boolvars = []
-            for c in range(max_total_base_reqs):
+            for c in range(num_abstract_courses):
                 double_counts = model.NewBoolVar('')
                 double_counts_boolvars.append(double_counts)
                 # cf[c, b1] & cf[c, b2] => dc
@@ -108,7 +123,7 @@ def compute_double_counts_upper_bound(schedule_params: ScheduleParams, max_base_
             model.Add(num_double_counts_between[b1, b2] == sum(double_counts_boolvars))
 
     course_double_counts: dict[Index, BoolVar] = {}
-    for c in range(max_total_base_reqs):
+    for c in range(num_abstract_courses):
         course_double_counts[c] = model.NewBoolVar('')
         model.Add(sum(counts_for[c, b] for b in range(len(requirement_blocks))) >= 2).OnlyEnforceIf(course_double_counts[c])
         model.Add(sum(counts_for[c, b] for b in range(len(requirement_blocks))) <= 1).OnlyEnforceIf(course_double_counts[c].Not())
@@ -118,8 +133,18 @@ def compute_double_counts_upper_bound(schedule_params: ScheduleParams, max_base_
 
     solver = cp_model.CpSolver()
     assert solver.Solve(model) == cp_model.OPTIMAL
-    return int(solver.ObjectiveValue())
+    print("max double counting credits:", solver.ObjectiveValue() / scaling_coeff)
+    return solver.ObjectiveValue() / scaling_coeff
 
+
+def transform_min_cu_requirements_into_min_courses_requirements():
+    """
+    We are allowed to specify requirements such as:
+    `Take 3 CU out of the following set of courses: {...}`
+
+    However, these are difficult to represent in the model as-is.
+    """
+    pass
 
 class ScheduleGenerator:
     """
@@ -153,12 +178,12 @@ class ScheduleGenerator:
         `base_requirements_of_block: list[list[BaseRequirement]]`
             `base_requirements_of_block[b]` contains a list of all BaseRequirements in block b's subtree.
 
-        `base_requirements_lower_bound: int`
-            A lower bound on the numebr of BaseRequirements that must be satisfied, assuming each
+        `total_credits_lower_bound: int`
+            A lower bound on the number of credits that must be satisfied, assuming each
             Requirement is satisfied using its k smallest sub-requirements.
 
-        `double_counting_courses_upper_bound: int`
-            An upper bound on the number of courses that can count for multiple requirements.
+        `double_counting_credits_upper_bound: float`
+            An upper bound on the number of credits that can count for multiple requirements.
 
         `last_completed_sem`: Index
             The last semester that was already completed.
@@ -177,12 +202,9 @@ class ScheduleGenerator:
 
         `model: CpModel`    
             The CP model.
-
-        `num_double_counts: IntVar`
-            The number of pairs `{base_req_1, base_req_2}` where one course counts for both requirements.
         
-        `num_courses_taken: IntVar`
-            The total number of courses taken.
+        `num_credits_taken: IntVar`
+            The total number of credits taken.
     
         `takes_course: dict[Id, BoolVar]`
             `takes_course[course_id]` is True iff the course is taken at any point.
@@ -245,16 +267,19 @@ class ScheduleGenerator:
 
         # optimization to make the model smaller:
         # only need to consider courses that satisfy at least one of our requirements
+        # and can also exclude 0 CU courses (likely bad data)
         # TODO: may also need courses that are prerequisites for courses that satisfy 
         requested_and_completed_ids = set(
             [request.course_id for request in course_requests] + [completed.course_id for completed in completed_courses]
         )
         all_courses = [
             course for course in all_courses
-            if course['id'] in requested_and_completed_ids or any(
+            if course['credits'] > 0
+            and (course['id'] in requested_and_completed_ids 
+            or any(
                 br.satisfied_by_course(course)
                 for br in self.all_base_requirements
-            )
+            ))
         ]
 
         self.course_id_to_course = {
@@ -264,23 +289,49 @@ class ScheduleGenerator:
         self.all_course_ids = self.course_id_to_course.keys()
 
         # Use dynamic programming
-        min_base_requirements_to_satisfy: dict[Uid, int] = {}
-        max_base_requirements_to_satisfy: dict[Uid, int] = {}
+        min_base_credits_to_satisfy: dict[Uid, float] = {}
+        max_base_credits_to_satisfy: dict[Uid, float] = {}
         for req in reversed(self.all_requirements):
             if not req.is_multi_requirement:
-                min_base_requirements_to_satisfy[req.uid] = 1
-                max_base_requirements_to_satisfy[req.uid] = 1
+                # For requirements that can be satisfied by a course, get the min/max number of CU
+                req_courses_credits: list[float] = [
+                    course['credits']
+                    for course_id in req.base_requirement.courses
+                    if (course := self.course_id_to_course.get(course_id))
+                    if course['credits'] > 0
+                ]
+                min_base_credits_to_satisfy[req.uid] = min(req_courses_credits, default=1)
+                max_base_credits_to_satisfy[req.uid] = max(req_courses_credits, default=1)
             else:
-                min_base_requirements_to_satisfy[req.uid] = sum(sorted(
-                    min_base_requirements_to_satisfy[subreq.uid] for subreq in req.multi_requirements
-                )[:req.min_satisfied_reqs])
-                max_base_requirements_to_satisfy[req.uid] = sum(sorted(
-                    (max_base_requirements_to_satisfy[subreq.uid] for subreq in req.multi_requirements),
-                    reverse=True
-                )[:req.min_satisfied_reqs])
+                min_terms: list[float] = []
+                max_terms: list[float] = []
 
-        self.base_requirements_lower_bound = sum(
-            min_base_requirements_to_satisfy[req.uid] for block in self.requirement_blocks for req in block
+                if req.min_satisfied_reqs > 0:
+                    # Using the k smallest requirements (by credits)
+                    min_terms.append(
+                        sum(sorted(
+                            min_base_credits_to_satisfy[subreq.uid] for subreq in req.multi_requirements
+                        )[:req.min_satisfied_reqs])
+                    )
+                    # Using the k largest requirements (by credits)
+                    max_terms.append(
+                        sum(sorted(
+                            (min_base_credits_to_satisfy[subreq.uid] for subreq in req.multi_requirements),
+                            reverse=True
+                        )[:req.min_satisfied_reqs])
+                    )
+                
+                if req.min_credits > 0:
+                    min_terms.append(req.min_credits)
+                    max_terms.append(req.min_credits)
+                    
+                # To satisfy, we need to satisfy a minimum number of requirements AND satisfy a minimum
+                # number of credits, hence the max in both cases here
+                min_base_credits_to_satisfy[req.uid] = max(min_terms)
+                max_base_credits_to_satisfy[req.uid] = max(min_terms)
+
+        self.total_credits_lower_bound = sum(
+            min_base_credits_to_satisfy[req.uid] for block in self.requirement_blocks for req in block
         )
 
         self.course_requests = course_requests
@@ -297,12 +348,15 @@ class ScheduleGenerator:
         for b1, b2 in block_index_pairs:
             if schedule_params.max_double_counts[b1, b2] is None:
                 # If we have unlimited double counts, we can upper bound the number of double counts with
-                # an upper bound on the number of BaseRequirements in either block (whichever is smaller)
+                # an upper bound on the number of credits in either block (whichever is smaller)
                 requirement_blocks = self.schedule_params.requirement_blocks
-                min_block_size = min(len(requirement_blocks[b1]), len(requirement_blocks[b2]))
-                schedule_params.max_double_counts[b1, b2] = min_block_size
+                min_max_credits = min(
+                    sum(max_base_credits_to_satisfy[req.uid] for req in block)
+                    for block in (requirement_blocks[b1], requirement_blocks[b2])
+                )
+                schedule_params.max_double_counts[b1, b2] = ceil(min_max_credits)
 
-        self.double_counting_courses_upper_bound = compute_double_counts_upper_bound(schedule_params, max_base_requirements_to_satisfy)
+        self.double_counting_credits_upper_bound = compute_double_counts_upper_bound(schedule_params, max_base_credits_to_satisfy)
 
         self.semester_indices = range(1, schedule_params.num_semesters+1)
         self.semester_indices_with_precollege = range(schedule_params.num_semesters+1)
@@ -313,8 +367,8 @@ class ScheduleGenerator:
             self.link_takes_course_vars,
             self.link_satisfies_vars,
             self.satisfy_all_requirements_once,
-            self.enforce_max_courses_per_semester,
-            self.enforce_min_courses_per_semester,
+            self.enforce_max_credits_per_semester,
+            self.enforce_min_credits_per_semester,
             self.enforce_double_counting_rules,
             self.take_courses_at_most_once,
             self.must_take_course_to_count,
@@ -323,12 +377,13 @@ class ScheduleGenerator:
             self.dont_take_unnecessary_courses,
             self.enforce_prerequisites,
             self.take_requested_courses,
-            self.too_many_courses_infeasible,
+            self.too_many_requirements_infeasible,
             self.take_completed_courses,
             # self.minimize_maximum_difficulty,
             self.dont_take_cross_listed_twice
         ]
         for constraint in constraints:
+            print(constraint.__func__.__name__)
             constraint()
 
     def solve(
@@ -376,8 +431,6 @@ class ScheduleGenerator:
         """ Initialize all CP variables. """
         model = self.model
 
-        # number of times we double count
-        self.num_double_counts = model.NewIntVar(0, sum(self.schedule_params.max_double_counts.values()), '')
         # takes_course_in_sem[c, s] is true iff we take c in semester s
         self.takes_course_in_sem: dict[tuple[Id, Index], BoolVar] = {
             (c, s): model.NewBoolVar('') 
@@ -441,16 +494,53 @@ class ScheduleGenerator:
         model = self.model
         for r0 in self.all_requirements:
             if r0.is_multi_requirement:
-                model.Add(
-                    sum(self.is_satisfied[r.uid] for r in r0.multi_requirements) 
-                    >= 
-                    r0.min_satisfied_reqs
-                ).OnlyEnforceIf(self.is_satisfied[r0.uid])
-                model.Add(
-                    sum(self.is_satisfied[r.uid] for r in r0.multi_requirements) 
-                    <
-                    r0.min_satisfied_reqs
-                ).OnlyEnforceIf(self.is_satisfied[r0.uid].Not())
+                count_satisfied = model.NewBoolVar('')
+                credit_satisfied = model.NewBoolVar('')
+
+                # Satisfy minimum number of subrequirements, minimum number of credits, or both
+                if False and r0.min_satisfied_reqs > 0 and r0.min_credits > 0:
+                    model.AddImplication(self.is_satisfied[r0.uid], count_satisfied)
+                    model.AddImplication(self.is_satisfied[r0.uid], credit_satisfied)
+                    model.AddBoolOr([credit_satisfied.Not(), count_satisfied.Not(), self.is_satisfied[r0.uid].Not()])
+                if r0.min_satisfied_reqs > 0:
+                    model.Add(self.is_satisfied[r0.uid] == count_satisfied)
+                if r0.min_credits > 0:
+                    model.Add(self.is_satisfied[r0.uid] == credit_satisfied)
+
+                if r0.min_satisfied_reqs > 0:
+                    model.Add(
+                        sum(self.is_satisfied[r.uid] for r in r0.multi_requirements) 
+                        >= 
+                        r0.min_satisfied_reqs
+                    ).OnlyEnforceIf(count_satisfied)
+                    model.Add(
+                        sum(self.is_satisfied[r.uid] for r in r0.multi_requirements) 
+                        <
+                        r0.min_satisfied_reqs
+                    ).OnlyEnforceIf(count_satisfied.Not())
+
+                if r0.min_credits > 0:
+                    base_requirements_of_r0 = []
+                    to_visit = [r0]
+                    while to_visit:
+                        curr = to_visit.pop()
+                        if not curr.is_multi_requirement:
+                            base_requirements_of_r0.append(curr.base_requirement)
+                        else:
+                            to_visit.extend(curr.multi_requirements)
+
+                    scaling_coeff = 1.0 / ((r0.min_credits % 1) or 1)
+                    scaled_credits_expr = sum(
+                        int(scaling_coeff * c['credits']) * self.counts_for[c['id'], br.uid]
+                        for c in self.all_courses
+                        for br in base_requirements_of_r0
+                    )
+                    model.Add(
+                        scaled_credits_expr >= int(scaling_coeff * r0.min_credits)
+                    ).OnlyEnforceIf(credit_satisfied)
+                    model.Add(
+                        scaled_credits_expr < int(scaling_coeff * r0.min_credits)
+                    ).OnlyEnforceIf(credit_satisfied.Not())                    
 
             else:
                 br = r0.base_requirement
@@ -464,7 +554,7 @@ class ScheduleGenerator:
                     model.AddImplication(self.counts_for[c, br.uid], self.is_satisfied[r0.uid])
 
     def satisfy_all_requirements_once(self) -> None:
-        """ All requirements must be satisfied by exactly one course. """
+        """ All requirements must be satisfied (by either one 1 CU course or two 0.5 CU courses). """
         model = self.model
         for block in self.requirement_blocks:
             for r in block:
@@ -472,42 +562,48 @@ class ScheduleGenerator:
                 model.Add(
                     self.is_satisfied[r.uid] == 1
                 )
-                # Redundant: Top-level BaseRequirements should be satisfied by exactly one course
+                # Redundant: Top-level BaseRequirements should be satisfied by at most 2 courses
                 if not r.is_multi_requirement:
                     br = r.base_requirement
                     model.Add(
-                        sum(self.counts_for[c, br.uid] for c in self.all_course_ids) == 1
+                        sum(self.counts_for[c, br.uid] for c in self.all_course_ids) <= 2
                     )
         
-    def enforce_max_courses_per_semester(self) -> None:
+    def enforce_max_credits_per_semester(self) -> None:
         """ Limit the maximum number of courses per semester based on the schedule params. """
         model = self.model
+        scaling_coeff = 4
 
         for s in self.semester_indices_in_future:
             model.Add(
-                sum(self.takes_course_in_sem[c, s] for c in self.all_course_ids)
+                sum(
+                    int(scaling_coeff * c['credits']) * self.takes_course_in_sem[c['id'], s] 
+                    for c in self.all_courses
+                )
                 <= 
-                self.schedule_params.max_courses_per_semester
+                scaling_coeff * self.schedule_params.max_credits_per_semester
             )
 
-    def enforce_min_courses_per_semester(self) -> None:
+    def enforce_min_credits_per_semester(self) -> None:
         """ Limit the minimum number of courses per semester based on the schedule params. """
         model = self.model
+        scaling_coeff = 4
 
         for s in self.semester_indices_in_future:
             model.Add(
-                sum(self.takes_course_in_sem[c, s] for c in self.all_course_ids)
+                sum(
+                    int(scaling_coeff * c['credits']) * self.takes_course_in_sem[c['id'], s] 
+                    for c in self.all_courses
+                )
                 >=
-                self.schedule_params.min_courses_per_semester
+                scaling_coeff * self.schedule_params.min_credits_per_semester
             )
 
     def enforce_double_counting_rules(self) -> None:
         """ Limit the number of courses that can be double counted based on the schedule params. """
         model = self.model
-        # total number of courses >= total number of requirements - num_double_counts
-        # this formula is derived from the inclusion-exclusion principle (cis160 ftw)
 
-        double_counts_boolvars_between: defaultdict[tuple[Index, Index], list[BoolVar]]
+        double_counts_boolvars_between: defaultdict[tuple[Index, Index], list[tuple[BoolVar, float]]]
         double_counts_boolvars_between = defaultdict(list)
 
         for c in self.all_course_ids:
@@ -535,17 +631,20 @@ class ScheduleGenerator:
                 is_double_counted = model.NewBoolVar('')
                 model.Add(num_times_counted_in_either_block == 2).OnlyEnforceIf(is_double_counted)
                 model.Add(num_times_counted_in_either_block != 2).OnlyEnforceIf(is_double_counted.Not())
-                double_counts_boolvars_between[b1, b2].append(is_double_counted)
+                credits = self.course_id_to_course[c]['credits']
+                assert int(credits / 0.25) == credits / 0.25
+                double_counts_boolvars_between[b1, b2].append((is_double_counted, credits))
 
         # Allow at most max_double_counts[b1, b2] courses to double count between blocks b1 and b2
-        for (b1, b2), max_double_counts in self.schedule_params.max_double_counts.items():
-            num_double_counts_between_blocks = model.NewIntVar(0, max_double_counts, '')
-            model.Add(
-                num_double_counts_between_blocks == sum(double_counts_boolvars_between[b1, b2])
+        for (b1, b2), max_double_count_cu in self.schedule_params.max_double_counts.items():
+            double_count_credits_between_blocks = model.NewIntVar(0, max_double_count_cu, '')
+            double_count_credits_expr_times_4 = sum(
+                int(4 * cu) * is_double_counted 
+                for is_double_counted, cu in double_counts_boolvars_between[b1, b2]
             )
-
-        # note: this is just the definition of num_double_counts
-        model.Add(self.num_double_counts == sum(sum(l) for l in double_counts_boolvars_between.values()))
+            model.Add(
+                4 * double_count_credits_between_blocks == double_count_credits_expr_times_4
+            )
 
     def take_courses_at_most_once(self) -> None:
         """ We should only take a course at most once. """
@@ -667,23 +766,42 @@ class ScheduleGenerator:
                     self.takes_course[course_id] == 1
                 )
 
-    def too_many_courses_infeasible(self) -> None:
-        """ Give the model some helpful facts to recognize schedules with too many courses to be infeasible. """
+
+    def too_many_requirements_infeasible(self) -> None:
+        """ Give the model some helpful facts to recognize schedules with too many required credits to be infeasible. """
         model = self.model
         num_semesters = self.schedule_params.num_semesters
-        max_courses_per_semester = self.schedule_params.max_courses_per_semester
+        max_credits_per_semester = self.schedule_params.max_credits_per_semester
 
-        num_courses_ub = len(self.completed_courses) + max_courses_per_semester * (num_semesters - self.last_completed_sem)
-        self.num_courses_taken = model.NewIntVar(0, num_courses_ub, '')
+        # note: we can actually get away without explicitly accounting for <1 CU classes here
+        # it's because 
+
+        # num credits taken >= num credits taken so far + (max credits per semester * num remaining semesters)
+        credits_completed = sum(
+            self.course_id_to_course[c.course_id]['credits'] for c in self.completed_courses
+        )
+        num_credits_ub = credits_completed + max_credits_per_semester * (num_semesters - self.last_completed_sem)
+        # multiply by 4 because we can have .25 CUs
+        scaling_coeff = 4
+        self.num_credits_taken_scaled = model.NewIntVar(0, int(scaling_coeff * num_credits_ub), '')
         model.Add(
-            self.num_courses_taken == sum(self.takes_course[c] for c in self.all_course_ids)
+            self.num_credits_taken_scaled 
+            == 
+            sum(
+                int(scaling_coeff * c['credits']) * self.takes_course[c['id']] for c in self.all_courses
+            )
         )
         print(
-            f'{num_courses_ub} >= num_courses_taken >= {self.base_requirements_lower_bound} - {self.double_counting_courses_upper_bound}'
+            f'{num_credits_ub} >= num_credits_taken >= {self.total_credits_lower_bound} - {self.double_counting_credits_upper_bound}'
         )
+        # total number of credits >= total number of requirements - num_double_counts
+        # this formula is derived from the inclusion-exclusion principle (cis160 ftw)
         model.Add(
-            self.num_courses_taken >= (self.base_requirements_lower_bound - self.double_counting_courses_upper_bound)
+            self.num_credits_taken_scaled 
+            >= 
+            int(scaling_coeff * (self.total_credits_lower_bound - self.double_counting_credits_upper_bound))
         )
+        
     
     def take_completed_courses(self) -> None:
         """ Take the courses that the student has already completed. """
@@ -753,11 +871,11 @@ class ScheduleGenerator:
         model = self.model
 
         # get upper bound for maximum difficulty
-        upper_bound = 4 * self.schedule_params.max_courses_per_semester * self.schedule_params.num_semesters
+        upper_bound = 4 * self.schedule_params.max_credits_per_semester * self.schedule_params.num_semesters
         self.max_difficulty = model.NewIntVar(0, upper_bound, '')
 
         # only iterate for semesters left
-        self.list_difficulties = [model.NewIntVar(0, 4 * self.schedule_params.max_courses_per_semester, '') for _ in range(self.schedule_params.num_semesters)]
+        self.list_difficulties = [model.NewIntVar(0, 4 * self.schedule_params.max_credits_per_semester, '') for _ in range(self.schedule_params.num_semesters)]
 
         for s in range(self.last_completed_sem + 1, self.schedule_params.num_semesters + 1):
             model.Add(

@@ -156,13 +156,14 @@ DATS_MINOR: RequirementBlock = [
     Requirement.base(courses=['ENM-321', 'ESE-402', 'STAT-431']),
     Requirement(
         min_satisfied_reqs=2,
+        min_credits=2,
         multi_requirements=[
             Requirement.base(
                 courses=_DATS_MINOR_CATEGORIES[0], 
                 nickname="Data-Centric Programming"
             ),
             Requirement.base(
-                courses=_DATS_MINOR_CATEGORIES[1], 
+                courses=_DATS_MINOR_CATEGORIES[1],
                 nickname="Statistics"
             ),
             Requirement.base(

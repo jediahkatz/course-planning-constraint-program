@@ -15,12 +15,23 @@ by PIE:
 so we can say total number of courses taken >= min number of requirements - max number of pairwise counts
 but we can actually do better than this. 
 
+# https://math.stackexchange.com/questions/3997574/recursive-inclusion-exclusion-principle
 by PIE again (recursively):
 |C| =
     |C1| + |C2| + ... + |Cn|
-    - | Union (Ci ^ Cj for all i < j) |   # = total number of courses that count for multiple requirements
+  - Sum (| Union (Ci ^ Cj) for all j < i |) for all i
+
+we can rewrite the second term as:
+    Sum (| Ci ^ (Union Cj for all j < i) |) for all i
+
+if you think about it, if a course counts for blocks B1, B2, ..., Bk 
+then the second term counts it once for B2, B3, ..., Bk
+
+therefore this term equals:
+sum ( num_times_counted - 1 ) for each course that counts
 
 we can get a tighter bound on this than on the total number of pairwise counts
+by solving a relaxation of the original problem
 
 > feature: allow or of requirements
 - may require big overhaul/refactor of Requirements and RequirementBlocks

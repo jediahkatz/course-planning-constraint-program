@@ -2,7 +2,7 @@
 - write tests
 
 ## todo:
-- 
+- consider implementing BaseRequirement.allow_partial_cu
 - optimize model to speed up solving time
     - reduce number of vars and constraints? 
         - e.g. don't even create variable satisfies[c, r] if course c can't satisfy requirement r

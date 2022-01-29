@@ -7,6 +7,7 @@ def sample_courses_info() -> list[CourseInfo]:
         {
             'id': 'CIS-120',
             'title': 'Programming Languages & Techniques I',
+            'credits': 1.0,
             'semester': '2022A',
             'prerequisites': [],
             'requirements': [
@@ -40,6 +41,7 @@ def sample_courses_info() -> list[CourseInfo]:
         {
             'id': 'CIS-160',
             'title': 'Mathematical Foundations of Computer Science',
+            'credits': 1.0,
             'semester': '2022A',
             'prerequisites': [],
             'requirements': [
@@ -66,6 +68,7 @@ def sample_courses_info() -> list[CourseInfo]:
         {
             'id': 'CIS-121',
             'title': 'Programming Languages & Techniques II',
+            'credits': 1.0,
             'semester': '2022A',
             'prerequisites': [['CIS-120'], ['CIS-160']],
             'requirements': [
@@ -92,6 +95,7 @@ def sample_courses_info() -> list[CourseInfo]:
         {
             'id': 'CIS-240',
             'title': 'Computer Organization and Design',
+            'credits': 1.0,
             'semester': '2022A',
             'prerequisites': [['CIS-120']],
             'requirements': [
@@ -118,6 +122,7 @@ def sample_courses_info() -> list[CourseInfo]:
         {
             'id': 'CIS-262',
             'title': 'Automata, Computability, and Complexity',
+            'credits': 1.0,
             'semester': '2022A',
             'prerequisites': [['CIS-160']],
             'requirements': [
@@ -144,6 +149,7 @@ def sample_courses_info() -> list[CourseInfo]:
         {
             'id': 'CIS-262',
             'title': 'Automata, Computability, and Complexity',
+            'credits': 1.0,
             'semester': '2022A',
             'prerequisites': [['CIS-160']],
             'requirements': [
@@ -170,6 +176,7 @@ def sample_courses_info() -> list[CourseInfo]:
         {
             'id': 'MATH-104',
             'title': 'Calculus, Part I',
+            'credits': 1.0,
             'semester': '2022A',
             'prerequisites': [],
             'requirements': [
@@ -210,6 +217,7 @@ def sample_courses_info() -> list[CourseInfo]:
         {
             'id': 'CIS-261',
             'title': 'Discrete Probability',
+            'credits': 1.0,
             'semester': '2022A',
             'prerequisites': [['CIS-160']],
             'rate_offered': {

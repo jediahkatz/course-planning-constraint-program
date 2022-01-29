@@ -66,7 +66,8 @@ def generate_schedule(
 
 def compute_double_counts_upper_bound(schedule_params: ScheduleParams, max_credits_to_satisfy: dict[Uid, float]) -> float:
     """ 
-    Compute an upper bound on the number of credits that can count for multiple requirements,
+    Compute an upper bound on (total number of requirements - total number of courses taken),
+    equivalently the number of times that, for each block, a course counts for a later block,
     by solving a relaxation of the problem without any constraints about the requirements.
     """ 
     model = cp_model.CpModel()
@@ -122,20 +123,37 @@ def compute_double_counts_upper_bound(schedule_params: ScheduleParams, max_credi
 
             model.Add(num_double_counts_between[b1, b2] == sum(double_counts_boolvars))
 
-    course_double_counts: dict[Index, BoolVar] = {}
+    objective_boolvars: list[BoolVar] = []
     for c in range(num_abstract_courses):
-        course_double_counts[c] = model.NewBoolVar('')
-        model.Add(sum(counts_for[c, b] for b in range(len(requirement_blocks))) >= 2).OnlyEnforceIf(course_double_counts[c])
-        model.Add(sum(counts_for[c, b] for b in range(len(requirement_blocks))) <= 1).OnlyEnforceIf(course_double_counts[c].Not())
+        for b1 in range(len(requirement_blocks)):
+            double_counts_with_later_block = model.NewBoolVar('')
+            objective_boolvars.append(double_counts_with_later_block)
 
-    # Maximize the total number of courses that count for multiple requirements
-    model.Maximize(sum(course_double_counts.values()))
+            counts_for_later_block = model.NewBoolVar('')
+            model.AddBoolOr([
+                counts_for[c, b2] for b2 in range(b1+1, len(requirement_blocks))
+            ]).OnlyEnforceIf(counts_for_later_block)
+            model.AddBoolAnd([
+                counts_for[c, b2].Not() for b2 in range(b1+1, len(requirement_blocks))
+            ]).OnlyEnforceIf(counts_for_later_block.Not())
+
+            # cf[c, b1] & cflb => dcwlb
+            model.AddBoolOr([
+                counts_for[c, b1].Not(), counts_for_later_block.Not(), 
+                double_counts_with_later_block
+            ])
+            # dc => cf[c, b1] & cflb
+            model.AddImplication(double_counts_with_later_block, counts_for[c, b1])
+            model.AddImplication(double_counts_with_later_block, counts_for_later_block)
+
+    model.Maximize(sum(objective_boolvars))
 
     solver = cp_model.CpSolver()
     assert solver.Solve(model) == cp_model.OPTIMAL
     print("max double counting credits:", solver.ObjectiveValue() / scaling_coeff)
     return solver.ObjectiveValue() / scaling_coeff
 
+40 + 10 + 6
 
 def transform_min_cu_requirements_into_min_courses_requirements():
     """
@@ -202,9 +220,6 @@ class ScheduleGenerator:
 
         `model: CpModel`    
             The CP model.
-        
-        `num_credits_taken: IntVar`
-            The total number of credits taken.
     
         `takes_course: dict[Id, BoolVar]`
             `takes_course[course_id]` is True iff the course is taken at any point.
@@ -766,7 +781,6 @@ class ScheduleGenerator:
                     self.takes_course[course_id] == 1
                 )
 
-
     def too_many_requirements_infeasible(self) -> None:
         """ Give the model some helpful facts to recognize schedules with too many required credits to be infeasible. """
         model = self.model
@@ -796,13 +810,12 @@ class ScheduleGenerator:
         )
         # total number of credits >= total number of requirements - num_double_counts
         # this formula is derived from the inclusion-exclusion principle (cis160 ftw)
-        model.Add(
-            self.num_credits_taken_scaled 
-            >= 
-            int(scaling_coeff * (self.total_credits_lower_bound - self.double_counting_credits_upper_bound))
-        )
+        # model.Add(
+        #     self.num_credits_taken_scaled 
+        #     >= 
+        #     int(scaling_coeff * (self.total_credits_lower_bound - self.double_counting_credits_upper_bound))
+        # )
         
-    
     def take_completed_courses(self) -> None:
         """ Take the courses that the student has already completed. """
         model = self.model

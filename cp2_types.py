@@ -94,7 +94,7 @@ class BaseRequirement:
         self.courses = set(courses)
         self.min_number = min_number
         self.max_number = max_number
-        self.allow_partial_cu = allow_partial_cu
+        self.allow_partial_cu = allow_partial_cu    # TODO: unused
         self.nickname = nickname
 
         self.uid = BaseRequirement.uid

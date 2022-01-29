@@ -544,7 +544,7 @@ def test_triple_count(sample_courses_info: Sequence[CourseInfo]):
         cannot_triple_count=set(),
     )
 
-    assert (soln := generate_schedule(sample_courses_info, [], [], params))
+    assert (soln := generate_schedule(sample_courses_info, [], [], params, verbose=True))
     schedule, counts_for = soln
     assert schedule[0] == []
     assert schedule[1] == ['MATH-104']
@@ -583,8 +583,7 @@ def test_can_take_fall_course_in_fall(sample_courses_info: Sequence[CourseInfo])
     schedule, _ = soln
     print(schedule, _)
     assert schedule[0] == []
-    assert schedule[1] == ['CIS-160']
-    assert schedule[2] == []
+    assert schedule[1] + schedule[2] == ['CIS-160']
     assert schedule[3] == ['CIS-261']
 
 
@@ -606,8 +605,7 @@ def test_multi_course_requirement_any(sample_courses_info: Sequence[CourseInfo])
     assert (soln := generate_schedule(sample_courses_info, [], [], params))
     schedule, counts_for = soln
     assert schedule[0] == []
-    assert schedule[1] == ['CIS-160']
-    assert schedule[2] == []
+    assert schedule[1] + schedule[2] == ['CIS-160']
 
     assert counts_for['CIS-160'] == [(0, c160.base_requirement)]
 

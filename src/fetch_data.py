@@ -6,10 +6,10 @@ import requests
 import os.path
 import json
 
-COURSES_CACHE_FILE = 'all_courses.json'
-COURSE_INFOS_CACHE_FILE = 'course_infos.json'
-COURSE_OFFER_RATES_CACHE_FILE = 'offer_rates.json'
-COURSE_HISTORICAL_CREDITS_CACHE_FILE = 'historical_credits.json'
+COURSES_CACHE_FILE = 'data/all_courses.json'
+COURSE_INFOS_CACHE_FILE = 'data/course_infos.json'
+COURSE_OFFER_RATES_CACHE_FILE = 'data/offer_rates.json'
+COURSE_HISTORICAL_CREDITS_CACHE_FILE = 'data/historical_credits.json'
 BASE_URL = 'https://penncourseplan.com/api/base'
 LIST_COURSES_API_URL = f'{BASE_URL}/{{}}/courses/'
 REQS_API_URL = f'{BASE_URL}/current/requirements/'

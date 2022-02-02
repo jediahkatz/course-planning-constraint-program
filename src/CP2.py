@@ -5,7 +5,14 @@ from collections import defaultdict
 from typing import Optional
 
 from cp2_types import CourseRequest, CompletedCourse, Index, CourseInfo, Requirement, RequirementBlock, ScheduleParams
-from requirement_blocks import CIS_BSE, SEAS_WRIT, CIS_MSE, MATH_MINOR, STAT_MINOR, DATS_MINOR
+from requirement_blocks import (
+    CIS_BSE, 
+    SEAS_WRIT, 
+    CIS_MSE,
+    MATH_MINOR, 
+    STAT_MINOR, 
+    DATS_MINOR
+)
 from fetch_data import fetch_course_data
 from solver import generate_schedule
 # from pdf_parse import convert_to_images, write_output_txt, get_completed_courses

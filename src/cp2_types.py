@@ -193,6 +193,19 @@ class Requirement:
         return Requirement(base_requirement=BaseRequirement(**kwargs))
 
     @classmethod
+    def elective(cls, **kwargs):
+        """ 
+        Create a new 1 CU elective requirement.
+        An elective can be constrained by department or category,
+        but not by an explicit list of courses.
+        """
+        assert 'courses' not in kwargs
+        return Requirement.any(
+            min_credits=1,
+            multi_requirements=[Requirement.base(**kwargs)]
+        )
+
+    @classmethod
     def all(cls, sub_requirements: list, nickname=''):
         """ Create a new Requirement that is satisfied if any subrequirement is satisfied. """
         return Requirement(
@@ -209,6 +222,7 @@ class Requirement:
             min_satisfied_reqs=1,
             multi_requirements=sub_requirements
         )
+
 
 
 RequirementBlock = list[Requirement]

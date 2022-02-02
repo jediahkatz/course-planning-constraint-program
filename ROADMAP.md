@@ -2,7 +2,6 @@
 - write tests
 
 ## todo:
-- consider implementing BaseRequirement.allow_partial_cu
 - optimize model to speed up solving time
     - reduce number of vars and constraints? 
         - e.g. don't even create variable satisfies[c, r] if course c can't satisfy requirement r
@@ -18,6 +17,7 @@
     - basically just give uuids to requirement blocks
 
 ## done (reverse chrono):
+- make electives <= 1 CU and implement allow_partial_cu for BaseRequirements
 - use requirements based on CUs instead of just number of courses
 - add lower bound to quickly determine infeasiblity in problems with too many requirements
 - allow requirement groups with cardinality constraints on subrequirements

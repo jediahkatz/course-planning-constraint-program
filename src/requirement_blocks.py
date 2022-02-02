@@ -89,6 +89,40 @@ CIS_MSE: RequirementBlock = [
         nickname='Grad Non-CIS'
     ) for _ in range(3)]),
 ]
+# how to implement "waived" requirements...?
+# DATS_MSE: RequirementBlock = [
+#     Requirement.base(courses=[])
+# ]
+################################
+#########   M A J O R S
+################################
+
+DSGN_MAJOR: RequirementBlock = [
+    Requirement.base(courses=['DSGN-264']),
+    Requirement.base(courses=['DSGN-306']),
+    *([
+        Requirement.base(
+            nickname="Interactive Design Studio",
+            courses=['DSGN-266', 'DSGN-268', 'DSGN-317', 'DSGN-328', 'DSGN-337', 'DSGN-378'], 
+        )
+        for _ in range(4)
+    ]),
+    Requirement.base(nickname='Art History', courses=['ARTH-101', 'ARTH-102', 'ARTH-106', 'ARTH-300'])
+    *([
+        Requirement.base(nickname='Art Theory', courses=['ARCH-411', 'DSGN-300', 'DSGN-343', 'URBS-205', 'VLST-101'])
+        for _ in range(3)
+    ]),
+    Requirement.base(courses=['DSGN-488']),
+    Requirement.base(courses=['DSGN-489']),
+    *([
+        Requirement.base(nickname='Art/Design Elective', depts=['FNAR', 'DSGN'])
+    ])
+]
+
+################################
+#########   M I N O R S
+################################
+
 MATH_MINOR: RequirementBlock = [
     Requirement.base(courses=['MATH-104']),
     Requirement.base(courses=['MATH-114', 'MATH-115', 'MATH-116']),
@@ -151,8 +185,7 @@ _DATS_MINOR_CATEGORIES = [
     ],
     # Modeling
     ['NETS-312', 'MKTG-271', 'OIDD-325', 'OIDD-353', 'STAT-433', 'STAT-436']
-
-] 
+]
 DATS_MINOR: RequirementBlock = [
     Requirement.base(courses=['CIS-120']),
     Requirement.base(courses=['CIS-419', 'CIS-519', 'CIS-520', 'STAT-471']),
@@ -184,4 +217,42 @@ DATS_MINOR: RequirementBlock = [
             ),
         ]
     )
+]
+COGS_MINOR: RequirementBlock = [
+    Requirement.base(courses=['COGS-001', 'CIS-140', 'LING-105', 'PHIL-044', 'PSYC-107']),
+    
+]
+_ECON_ELECTIVE_COURSES = [
+    'ECON-103', 'ECON-104', 'ECON-221', 'ECON-222', 'ECON-14',
+    'ECON-030', 'ECON-033', 'ECON-035', 'ECON-036', 'ECON-039', 
+    'ECON-231', 'ECON-232', 'ECON-233', 'ECON-234', 'ECON-235',
+    'ECON-236', 'ECON-237', 'ECON-013', 'ECON-211', 'ECON-212',
+    'ECON-245', 'ECON-260', 'ECON-262', 'ECON-102', 'ECON-210',
+    'ECON-241', 'ECON-242', 'ECON-243', 'ECON-246', 'ECON-244',
+    'ECON-024', 'ECON-050', 'ECON-251', 'ECON-252', 'ECON-262',
+]
+ECON_MINOR: RequirementBlock = [
+    Requirement.base(courses=['ECON-001']),
+    Requirement.base(courses=['ECON-002']),
+    Requirement.base(courses=['ECON-101']),
+    Requirement.base(
+        courses=_ECON_ELECTIVE_COURSES,
+        min_number=200,    
+    ),
+    Requirement.base(courses=_ECON_ELECTIVE_COURSES),
+    Requirement.base(courses=_ECON_ELECTIVE_COURSES),
+]
+ENGL_MINOR: RequirementBlock = [
+    Requirement.base(courses=['ENGL-020', 'ENGL-040']),
+    Requirement.elective(depts=['ENGL'], min_number=200),
+    Requirement.elective(depts=['ENGL']),
+    Requirement.elective(depts=['ENGL']),
+    Requirement.elective(depts=['ENGL']),
+    Requirement.elective(depts=['ENGL']),
+]
+SOCI_MINOR: RequirementBlock = [
+    Requirement.base(courses=['SOCI-001']),
+    Requirement.base(courses=['SOCI-100']),
+    Requirement.base(courses=['SOCI-125', 'SOCI-126']),
+    Requirement.elective(depts=['SOCI']),
 ]

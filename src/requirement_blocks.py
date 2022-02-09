@@ -1,7 +1,7 @@
 from cp2_types import Requirement, RequirementBlock
 
 # 40 CU CIS BSE
-CIS_BSE: RequirementBlock = [
+OLD_CIS_BSE: RequirementBlock = [
     # === ENGINEERING ===
     Requirement.base(courses=['CIS-110']),
     Requirement.base(courses=['CIS-120']),
@@ -14,13 +14,13 @@ CIS_BSE: RequirementBlock = [
     Requirement.base(courses=['CIS-401', 'CIS-411']),
     Requirement.base(courses=['CIS-471']),
     # cis electives
-    *([Requirement.base(
+    *([Requirement.elective(
         categories=['ENG@SEAS'], 
         depts=['CIS', 'NETS'], 
         min_number=200,
         max_number=699,
         allow_partial_cu=True,
-        nickname="CIS Elective"
+        nickname='CIS Elective'
     ) for _ in range(4)]),
     # === MATH ===
     Requirement.base(courses=['MATH-104']),
@@ -35,7 +35,7 @@ CIS_BSE: RequirementBlock = [
     Requirement.base(categories=['NATSCI@SEAS']),
     # # === TODO: TECHNICAL ELECTIVES ===
     *([Requirement.base(categories=['ENG@SEAS']) for _ in range(2)]),
-    *([Requirement.base(
+    *([Requirement.elective(
         categories=['ENG@SEAS', 'MATH@SEAS', 'NATSCI@SEAS'],
         allow_partial_cu=True,
     ) for _ in range(4)]),
@@ -107,7 +107,7 @@ DSGN_MAJOR: RequirementBlock = [
         )
         for _ in range(4)
     ]),
-    Requirement.base(nickname='Art History', courses=['ARTH-101', 'ARTH-102', 'ARTH-106', 'ARTH-300'])
+    Requirement.base(nickname='Art History', courses=['ARTH-101', 'ARTH-102', 'ARTH-106', 'ARTH-300']),
     *([
         Requirement.base(nickname='Art Theory', courses=['ARCH-411', 'DSGN-300', 'DSGN-343', 'URBS-205', 'VLST-101'])
         for _ in range(3)
@@ -115,8 +115,220 @@ DSGN_MAJOR: RequirementBlock = [
     Requirement.base(courses=['DSGN-488']),
     Requirement.base(courses=['DSGN-489']),
     *([
-        Requirement.base(nickname='Art/Design Elective', depts=['FNAR', 'DSGN'])
+        Requirement.base(nickname='Art/Design Elective', depts=['FNAR', 'DSGN'], max_number=600)
+        for _ in range(4)
     ])
+]
+
+CIS_BREADTH: RequirementBlock = [
+    Requirement.all(sub_requirements=[
+        Requirement.base(
+            nickname='Networking',
+            courses=['NETS-150', 'NETS-212', 'CIS-331', 'CIS-455', 'CIS-505', 'CIS-553']
+        ),
+        Requirement.base(nickname='Databases', courses=['CIS-450', 'CIS-455', 'CIS-545']),
+        Requirement.base(nickname='Distributed Systems', courses=['NETS-212', 'CIS-455', 'CIS-545']),
+        Requirement.base(
+            nickname='Machine Learning/AI', 
+            courses=['CIS-419', 'CIS-519', 'CIS-421', 'CIS-520', 'CIS-545', 'CIS-620']),
+        Requirement.base(
+            nickname='Project', 
+            courses=[
+                'NETS-212', 'CIS-341', 'CIS-350', 'CIS-441', 'CIS-551', 'CIS-450', 'CIS-455', 'CIS-555', 
+                'CIS-460', 'CIS-505', 'CIS-553', 'ESE-350'
+            ]
+        ),
+    ])
+]
+
+CIS_BSE: RequirementBlock = [
+    # === ENGINEERING ===
+    Requirement.base(courses=['CIS-110']),
+    Requirement.base(courses=['CIS-120']),
+    Requirement.base(courses=['CIS-121']),
+    Requirement.base(courses=['CIS-240']),
+    Requirement.base(courses=['CIS-262']),
+    Requirement.base(courses=['CIS-320']),
+    Requirement.base(courses=['CIS-380']),
+    Requirement.any(sub_requirements=[
+        Requirement.all(sub_requirements=[
+            Requirement.base(courses=['CIS-400']),
+            Requirement.base(courses=['CIS-401']),
+        ]),
+        Requirement.all(sub_requirements=[
+            Requirement.base(courses=['CIS-410']),
+            Requirement.base(courses=['CIS-411']),
+        ]),
+    ]),
+    Requirement.base(courses=['CIS-471']),
+    # cis electives
+    Requirement.elective(
+        categories=['ENG@SEAS'], 
+        depts=['CIS', 'NETS'], 
+        min_number=100,
+        max_number=699,
+        # allow_partial_cu=True,
+        nickname='CIS Elective'
+    ),
+    *([Requirement.elective(
+        categories=['ENG@SEAS'], 
+        depts=['CIS', 'NETS'], 
+        min_number=200,
+        max_number=699,
+        # allow_partial_cu=True,
+        nickname='CIS Elective'
+    ) for _ in range(4)]),
+    # === MATH & NATURAL SCIENCE ===
+    Requirement.base(courses=['MATH-104']),
+    Requirement.base(courses=['MATH-114']),
+    Requirement.base(courses=['CIS-160']),
+    Requirement.base(courses=['CIS-261', 'ESE-301', 'ENM-321', 'STAT-430']),
+    Requirement.base(courses=['MATH-240', 'MATH-312', 'MATH-313', 'MATH-314']),
+    Requirement.any(sub_requirements=[
+        Requirement.base(courses=['PHYS-150', 'PHYS-170']),
+        Requirement.all(sub_requirements=[
+            Requirement.base(courses=['MEAM-110']),
+            Requirement.base(courses=['MEAM-147']),
+        ]),
+    ]),
+    Requirement.base(courses=['PHYS-151', 'PHYS-171', 'ESE-112']),
+    Requirement.base(categories=['MATH@SEAS', 'NATSCI@SEAS']),
+    # === TECHNICAL ELECTIVES ===
+    Requirement.elective(
+        categories=['ENG@SEAS', 'MATH@SEAS', 'NATSCI@SEAS'],
+        min_number=100,
+        max_number=700,
+        nickname='Tech Elective',
+        # allow_partial_cu=True,
+    ),
+    *([Requirement.elective(
+        categories=['ENG@SEAS', 'MATH@SEAS', 'NATSCI@SEAS'],
+        min_number=200,
+        max_number=700,
+        nickname='Tech Elective',
+        # allow_partial_cu=True,
+    ) for _ in range(5)]),
+    # === GENERAL ELECTIVES ===
+    Requirement.base(courses=['EAS-203']),
+    Requirement.base(depts=['WRIT'], max_number=99),
+    *([Requirement.elective(categories=['SS@SEAS', 'H@SEAS']) for _ in range(3)]),
+    *([Requirement.elective(categories=['SS@SEAS', 'H@SEAS', 'TBS@SEAS']) for _ in range(2)]),
+    # === FREE ELECTIVES ===
+    Requirement.elective(categories=['SS@SEAS', 'H@SEAS', 'ENG@SEAS'], nickname='Free Elective')
+]
+
+CIS_BAS: RequirementBlock = [
+    # === ENGINEERING ===
+    Requirement.base(courses=['CIS-110']),
+    Requirement.base(courses=['CIS-120']),
+    Requirement.base(courses=['CIS-121']),
+    Requirement.base(courses=['CIS-240']),
+    Requirement.base(courses=['CIS-262']),
+    Requirement.base(courses=['CIS-320']),
+    Requirement.base(courses=['CIS-498']),
+    # cis electives
+    Requirement.elective(
+        categories=['ENG@SEAS'], 
+        depts=['CIS', 'NETS'], 
+        min_number=100,
+        max_number=699,
+        # allow_partial_cu=True,
+        nickname='CIS Elective'
+    ),
+    Requirement.elective(
+        categories=['ENG@SEAS'], 
+        depts=['CIS', 'NETS'], 
+        min_number=200,
+        max_number=699,
+        # allow_partial_cu=True,
+        nickname='CIS Elective'
+    ),
+   *[Requirement.base(
+        courses=[
+            'CIS-341', 'CIS-350', 'CIS-380', 'CIS-441', 'CIS-450', 'CIS-550', 'CIS-455', 
+            'CIS-555', 'CIS-460', 'CIS-560', 'CIS-471', 'CIS-571', 'CIS-505', 'CIS-553',
+            'NETS-212', 'ESE-350'
+        ],
+        nickname='Project Elective'
+    ) for _ in range(2)],
+   *[Requirement.elective(
+        categories=['ENG@SEAS'],
+        nickname='Engineering Elective'
+    ) for _ in range(2)],
+    # === MATH & NATURAL SCIENCE ===
+    Requirement.base(courses=['MATH-104']),
+    Requirement.base(courses=['MATH-114']),
+    Requirement.base(courses=['CIS-160']),
+    *[Requirement.base(
+        courses=['PHYS-140', 'PHYS-150', 'PHYS-141', 'PHYS-151', 'EAS-091', 'CHEM-101', 'BIOL-101', 'BIOL-121'],
+        nickname='Natural Science'
+    ) for _ in range(2)],
+    *[
+        Requirement.base(categories=['MATH@SEAS', 'NATSCI@SEAS'])
+        for _ in range(3)
+    ],
+    # === TECHNICAL ELECTIVES ===
+    *([
+        Requirement.any(nickname='Tech Elective', sub_requirements=[
+            Requirement.elective(
+                categories=['ENG@SEAS', 'MATH@SEAS', 'NATSCI@SEAS'],
+                min_number=200,
+                max_number=700,
+                nickname='Tech Elective',
+                # allow_partial_cu=True,
+            ),
+            Requirement.any(sub_requirements=[Requirement.copy(r) for r in DSGN_MAJOR])
+        ])
+        for _ in range(8)
+    ]),
+    # === GENERAL ELECTIVES ===
+    Requirement.base(courses=['EAS-203']),
+    Requirement.base(depts=['WRIT'], max_number=99),
+    *([Requirement.elective(categories=['SS@SEAS', 'H@SEAS']) for _ in range(3)]),
+    *([Requirement.elective(categories=['SS@SEAS', 'H@SEAS', 'TBS@SEAS']) for _ in range(2)]),
+    # === FREE ELECTIVES ===
+    Requirement.elective(
+        categories=['SS@SEAS', 'H@SEAS', 'ENG@SEAS', 'MATH@SEAS', 'NATSCI@SEAS'],
+        nickname='Free Elective'
+    )
+]
+
+M_AND_T = [
+    # Leadership
+    Requirement.base(courses=['WH-101']),
+    Requirement.base(courses=['WH-201']),
+    Requirement.base(courses=['MGMT-301']),
+    # 0.5 CU capstone?
+    # Business fundamentals
+    Requirement.base(courses=['ACCT-101']),
+    Requirement.base(courses=['ACCT-102']),
+    Requirement.base(courses=['BEPP-250']),
+    Requirement.base(courses=['FNCE-101']),
+    Requirement.base(courses=['FNCE-100']),
+    Requirement.base(courses=['MGMT-101']),
+    Requirement.base(courses=['MKTG-101']),
+    # Social values
+    Requirement.base(courses=['LGST-101', 'LGST-100', 'EAS-203']),
+    # Quantitative/Computational Skills
+    Requirement.base(courses=['MATH-104']),
+    Requirement.base(courses=['MATH-114']),
+    Requirement.any([
+        Requirement.all(sub_requirements=[
+            Requirement.base(courses=['ESE-301', 'STAT-430']),
+            Requirement.base(courses=['ESE-302', 'STAT-431']),
+        ]),
+        Requirement.all(sub_requirements=[
+            Requirement.base(courses=['STAT-430']),
+            Requirement.base(courses=['STAT-431']),
+        ]),
+    ]),
+    # Global Economy, Business, and Society
+    # Humanities / SSH
+    # Business Breadth
+    # Cross Cultural Perspectives
+    # M&T Degree Requirements
+    Requirement.base(courses=['MGMT-237']),
+    Requirement.base(courses=['OIDD-399']),
 ]
 
 ################################
@@ -130,6 +342,7 @@ MATH_MINOR: RequirementBlock = [
     Requirement.base(courses=['MATH-312', 'MATH-312', 'MATH-314', 'MATH-350', 'MATH-370', 'MATH-502']),
     *([Requirement.base(depts=['MATH'], min_number=202) for _ in range(2)])
 ]
+
 _STAT_ELECTIVE_COURSES = [
     'STAT-405', 'STAT-410', 'STAT-422', 'STAT-432', 'STAT-433', 'STAT-435',
     'STAT-535', 'STAT-711', 'STAT-442', 'STAT-470', 'STAT-503', 'STAT-471',
@@ -171,6 +384,7 @@ STAT_MINOR: RequirementBlock = [
         ]),
     ])
 ]
+
 _DATS_MINOR_CATEGORIES = [
     # Data-Centric Programming
     ['CIS-105', 'ENGR-105', 'OIDD-311', 'STAT-405', 'STAT-470', 'ESE-305'],
@@ -218,10 +432,12 @@ DATS_MINOR: RequirementBlock = [
         ]
     )
 ]
+
 COGS_MINOR: RequirementBlock = [
     Requirement.base(courses=['COGS-001', 'CIS-140', 'LING-105', 'PHIL-044', 'PSYC-107']),
     
 ]
+
 _ECON_ELECTIVE_COURSES = [
     'ECON-103', 'ECON-104', 'ECON-221', 'ECON-222', 'ECON-14',
     'ECON-030', 'ECON-033', 'ECON-035', 'ECON-036', 'ECON-039', 
@@ -242,6 +458,7 @@ ECON_MINOR: RequirementBlock = [
     Requirement.base(courses=_ECON_ELECTIVE_COURSES),
     Requirement.base(courses=_ECON_ELECTIVE_COURSES),
 ]
+
 ENGL_MINOR: RequirementBlock = [
     Requirement.base(courses=['ENGL-020', 'ENGL-040']),
     Requirement.elective(depts=['ENGL'], min_number=200),
@@ -250,6 +467,7 @@ ENGL_MINOR: RequirementBlock = [
     Requirement.elective(depts=['ENGL']),
     Requirement.elective(depts=['ENGL']),
 ]
+
 SOCI_MINOR: RequirementBlock = [
     Requirement.base(courses=['SOCI-001']),
     Requirement.base(courses=['SOCI-100']),

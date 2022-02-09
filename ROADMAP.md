@@ -2,6 +2,8 @@
 - write tests
 
 ## todo:
+- 
+- scrape penn catalog for better list of courses and CUs
 - optimize model to speed up solving time
     - reduce number of vars and constraints? 
         - e.g. don't even create variable satisfies[c, r] if course c can't satisfy requirement r

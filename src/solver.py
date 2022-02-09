@@ -9,6 +9,13 @@ from cp2_types import (
 
 PRECOLLEGE_SEM: Index = 0
 
+def get_root(br: BaseRequirement) -> Requirement:
+    req = br
+    while hasattr(req, 'parent'):
+        req = req.parent
+
+    return req
+
 def generate_schedule(
     all_courses: Sequence[CourseInfo],
     course_requests: list[CourseRequest],
@@ -38,20 +45,20 @@ def generate_schedule(
         course_id_to_course[c]['credits'] for sem in schedule for c in sem
     )
     if verbose:
-        print(f'Solution found ({num_courses_taken} courses / {total_cu:g} cu in {num_semesters_without_precollege} semesters)')
+        print(f'Solution found ({num_courses_taken} courses / {total_cu:g} CU in {num_semesters_without_precollege} semesters)')
         print()
 
         for s, semester in enumerate(schedule):
             sem_cu = sum(course_id_to_course[course_id]['credits'] for course_id in semester)
             if s == 0:
-                print(f'PRE-COLLEGE CREDITS ({len(semester)} / {sem_cu:g} cu):')
+                print(f'PRE-COLLEGE CREDITS ({len(semester)} courses / {sem_cu:g} CU):')
             else:
-                print(f'SEMESTER {s} ({len(semester)} / {sem_cu:g} cu):')
+                print(f'SEMESTER {s} ({len(semester)} courses / {sem_cu:g} CU):')
             print('------------------')
 
             for course_id in semester:
                 requirement_names = [
-                    f'{br}'
+                    f'{_b}: {get_root(br).nickname} {br}'
                     for (_b, br) in course_id_to_requirement[course_id]
                 ]
                 requirement_names_str = ', '.join(requirement_names) or '{}'
@@ -60,6 +67,11 @@ def generate_schedule(
                 maybe_star = '*' if len(requirement_names) > 1 else ''
                 print(f'+ {cu:g}cu | {maybe_star}{course_id} (counts_for {requirement_names_str})')
             print()
+
+        for s, semester in enumerate(schedule):
+            for course_id in semester:
+                req_uids = [br.uid for _, br in course_id_to_requirement[course_id]]
+                print(f'CompletedCourse(\'{course_id}\', {s}, {req_uids}),')
 
     return schedule, course_id_to_requirement
 
@@ -153,16 +165,6 @@ def compute_double_counts_upper_bound(schedule_params: ScheduleParams, max_credi
     print("max double counting credits:", solver.ObjectiveValue() / scaling_coeff)
     return solver.ObjectiveValue() / scaling_coeff
 
-40 + 10 + 6
-
-def transform_min_cu_requirements_into_min_courses_requirements():
-    """
-    We are allowed to specify requirements such as:
-    `Take 3 CU out of the following set of courses: {...}`
-
-    However, these are difficult to represent in the model as-is.
-    """
-    pass
 
 class ScheduleGenerator:
     """
@@ -382,6 +384,7 @@ class ScheduleGenerator:
             self.link_takes_course_vars,
             self.link_satisfies_vars,
             self.satisfy_all_requirements_once,
+            self.enforce_total_max_credits,
             self.enforce_max_credits_per_semester,
             self.enforce_min_credits_per_semester,
             self.enforce_double_counting_rules,
@@ -394,6 +397,7 @@ class ScheduleGenerator:
             self.take_requested_courses,
             self.too_many_requirements_infeasible,
             self.take_completed_courses,
+            self.take_course_only_when_offered,
             # self.minimize_maximum_difficulty,
             self.dont_take_cross_listed_twice
         ]
@@ -509,26 +513,26 @@ class ScheduleGenerator:
         model = self.model
         for r0 in self.all_requirements:
             if r0.is_multi_requirement:
-                count_satisfied = model.NewBoolVar('')
-                credit_satisfied = model.NewBoolVar('')
+                min_reqs_satisfied = model.NewBoolVar('')
+                min_credits_satisfied = model.NewBoolVar('')
 
                 # Satisfy minimum number of subrequirements, minimum number of credits, or both
                 if r0.min_satisfied_reqs > 0:
-                    model.Add(self.is_satisfied[r0.uid] == count_satisfied)
+                    model.Add(self.is_satisfied[r0.uid] == min_reqs_satisfied)
                 if r0.min_credits > 0:
-                    model.Add(self.is_satisfied[r0.uid] == credit_satisfied)
+                    model.Add(self.is_satisfied[r0.uid] == min_credits_satisfied)
 
                 if r0.min_satisfied_reqs > 0:
                     model.Add(
                         sum(self.is_satisfied[r.uid] for r in r0.multi_requirements) 
                         >= 
                         r0.min_satisfied_reqs
-                    ).OnlyEnforceIf(count_satisfied)
+                    ).OnlyEnforceIf(min_reqs_satisfied)
                     model.Add(
                         sum(self.is_satisfied[r.uid] for r in r0.multi_requirements) 
                         <
                         r0.min_satisfied_reqs
-                    ).OnlyEnforceIf(count_satisfied.Not())
+                    ).OnlyEnforceIf(min_reqs_satisfied.Not())
 
                 if r0.min_credits > 0:
                     base_requirements_of_r0 = []
@@ -550,10 +554,10 @@ class ScheduleGenerator:
                     )
                     model.Add(
                         scaled_credits_expr >= int(scaling_coeff * r0.min_credits)
-                    ).OnlyEnforceIf(credit_satisfied)
+                    ).OnlyEnforceIf(min_credits_satisfied)
                     model.Add(
                         scaled_credits_expr < int(scaling_coeff * r0.min_credits)
-                    ).OnlyEnforceIf(credit_satisfied.Not())                    
+                    ).OnlyEnforceIf(min_credits_satisfied.Not())                    
 
             else:
                 br = r0.base_requirement
@@ -642,6 +646,20 @@ class ScheduleGenerator:
                 <= 
                 int(scaling_coeff * self.schedule_params.max_credits_per_semester)
             )
+
+    def enforce_total_max_credits(self) -> None:
+        model = self.model
+        scaling_coeff = 4
+
+        model.Add(
+            sum(
+                int(scaling_coeff * c['credits']) * self.takes_course_in_sem[c['id'], s] 
+                for c in self.all_courses
+                for s in self.semester_indices_with_precollege
+            )
+            <= 
+            int(scaling_coeff * self.schedule_params.total_max_credits)
+        )
 
     def enforce_min_credits_per_semester(self) -> None:
         """ Limit the minimum number of courses per semester based on the schedule params. """
@@ -755,9 +773,9 @@ class ScheduleGenerator:
             # TODO: commenting this out because we can assume for now all taken courses
             # count for something -- otherwise we can ask user to label them, or maybe
             # just try to minimize total number of courses taken
-            # if course_id in taken_courses:
-            #     # Don't add this constraint if the user has already taken the course
-            #     continue
+            if c in taken_courses:
+                # Don't add this constraint if the user has already taken the course
+                continue
 
             if c in requested_courses:
                 # Don't add this constraint if the user has requested this course
@@ -911,7 +929,7 @@ class ScheduleGenerator:
         """
         # TODO: allow override with course requests?
         for s in self.semester_indices_in_future:
-            season = Semester.SPRING if s % 2 else Semester.FALL
+            season = Semester.FALL if s % 2 == 1 else Semester.SPRING
             for course in self.all_courses:
                 c = course['id']
                 rate_offered_in_season = course['rate_offered'][season.value]

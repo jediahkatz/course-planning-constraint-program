@@ -164,6 +164,12 @@ class Requirement:
         self.min_credits = min_credits
         self.nickname = nickname
 
+        if not base_requirement:
+            for r in multi_requirements:
+                r.parent = self
+        else:
+            base_requirement.parent = self
+
         self.uid = Requirement.uid
         Requirement.uid += 1
 
@@ -200,7 +206,7 @@ class Requirement:
         but not by an explicit list of courses.
         """
         assert 'courses' not in kwargs
-        return Requirement.any(
+        return Requirement(
             min_credits=1,
             multi_requirements=[Requirement.base(**kwargs)]
         )
@@ -223,20 +229,62 @@ class Requirement:
             multi_requirements=sub_requirements
         )
 
+    @classmethod
+    def copy(cls, requirement):
+        """ Copy a requirement recursively, giving new UIDs to all requirements in its subtree. """
+        if not requirement.is_multi_requirement:
+            br: BaseRequirement = requirement.base_requirement
+            new_br = BaseRequirement(
+                categories=br.categories,
+                depts=br.depts,
+                courses=br.courses,
+                min_number=br.min_number,
+                max_number=br.max_number,
+                allow_partial_cu=br.allow_partial_cu,
+                nickname=br.nickname
+            )
+            return Requirement(
+                base_requirement=new_br,
+                nickname=requirement.nickname,
+            )
+        
+        return Requirement(
+            min_satisfied_reqs=requirement.min_satisfied_reqs,
+            min_credits=requirement.min_credits,
+            nickname=requirement.nickname,
+            multi_requirements=[
+                cls.copy(subreq) for subreq in requirement.multi_requirements
+            ]
+        )
+
 
 
 RequirementBlock = list[Requirement]
 
-class ScheduleParams(NamedTuple):
-    num_semesters: int
-    max_credits_per_semester: float
-    min_credits_per_semester: float
-    requirement_blocks: list[RequirementBlock]
-    # max_double_counts[block1_index, block2_index] is the max number of credits that can double count for
-    # block1 and block2, where block1_idx < block_idx. 'None' entries can double count unlimited times.
-    max_double_counts: dict[tuple[Index, Index], Optional[int]]
-    # a list of blocks such that no course can count for three of these blocks at the same time (e.g. majors)
-    cannot_triple_count: set[Index]
+class ScheduleParams():
+
+    def __init__(
+        self,
+        num_semesters: int,
+        max_credits_per_semester: float,
+        min_credits_per_semester: float,
+        requirement_blocks: list[RequirementBlock],
+        # max_double_counts[block1_index, block2_index] is the max number of credits that can double count for
+        # block1 and block2, where block1_idx < block_idx. 'None' entries can double count unlimited times.
+        max_double_counts: dict[tuple[Index, Index], Optional[int]],
+        # a list of blocks such that no course can count for three of these blocks at the same time (e.g. majors)
+        cannot_triple_count: set[Index],
+        total_max_credits: float = 0,
+    ) -> None:
+        self.num_semesters = num_semesters
+        self.total_max_credits = total_max_credits
+        self.max_credits_per_semester = max_credits_per_semester
+        self.min_credits_per_semester = min_credits_per_semester
+        self.requirement_blocks = requirement_blocks
+        self.max_double_counts = max_double_counts
+        self.cannot_triple_count = cannot_triple_count
+        if not total_max_credits:
+            total_max_credits = max_credits_per_semester * num_semesters
 
 # SemesterSchedule is a list of course ids, and Schedule is a list of SemesterSchedules
 SemesterSchedule = list[Id]
